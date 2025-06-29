@@ -1,0 +1,39 @@
+# Minimal Requirements for Low VRAM Deployment
+# Optimized for single GPU setup with memory constraints
+
+# Core ML Framework
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# Diffusion and Generation
+diffusers>=0.20.0
+transformers>=4.30.0
+accelerate>=0.20.0
+
+# Computer Vision
+opencv-python>=4.7.0
+pillow>=9.5.0
+imageio>=2.31.0
+imageio-ffmpeg>=0.4.8
+
+# Audio Processing  
+librosa>=0.10.0
+soundfile>=0.12.0
+whisper
+
+# Utilities
+numpy>=1.24.0
+scipy>=1.10.0
+einops>=0.6.0
+omegaconf>=2.3.0
+loguru>=0.7.0
+
+# Face Processing (minimal)
+# mediapipe>=0.10.0  # Optional, only if face detection needed
+
+# Memory Optimization
+psutil>=5.9.0  # For memory monitoring
+
+# File I/O
+pathlib2>=2.3.0; python_version<"3.4" 

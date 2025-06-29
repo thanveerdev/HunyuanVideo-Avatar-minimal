@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  hunyuan-avatar:
+    build: .
+    container_name: hunyuan-avatar
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - MODEL_BASE=/workspace
+      - CUDA_VISIBLE_DEVICES=0
+    volumes:
+      # Mount local directories for development
+      - ./outputs:/workspace/outputs
+      - ./logs:/workspace/logs
+      - ./inputs:/workspace/inputs
+      # Optional: Mount local weights if you have them
+      # - ./weights:/workspace/weights
+    ports:
+      - "7860:7860"  # Gradio interface (if enabled)
+      - "8000:8000"  # FastAPI interface (if enabled)
+    stdin_open: true
+    tty: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu] 

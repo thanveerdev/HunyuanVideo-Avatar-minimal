@@ -1,0 +1,44 @@
+# Exclude model weights and outputs from Docker build
+weights/
+!weights/README.md
+
+# Exclude outputs and logs
+outputs/*
+logs/*
+
+# Exclude git and development files
+.git/
+.gitignore
+*.md
+!README.md
+
+# Exclude temporary files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.pytest_cache/
+.coverage
+.cache
+
+# Exclude IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Exclude OS files
+.DS_Store
+Thumbs.db
+
+# Exclude build artifacts
+build/
+dist/
+*.egg-info/
+
+# Exclude test files
+tests/
+test_* 

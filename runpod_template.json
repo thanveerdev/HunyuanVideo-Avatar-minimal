@@ -1,0 +1,29 @@
+{
+  "name": "HunyuanVideo-Avatar",
+  "description": "AI Avatar Video Generation with HunyuanVideo - Optimized for low VRAM",
+  "dockerImage": "your-registry/hunyuan-avatar:latest",
+  "containerDiskInGb": 50,
+  "volumeInGb": 100,
+  "volumeMountPath": "/runpod-volume",
+  "ports": "7860/http,8000/http",
+  "env": [
+    {
+      "key": "MODEL_BASE",
+      "value": "/workspace"
+    },
+    {
+      "key": "CUDA_VISIBLE_DEVICES", 
+      "value": "0"
+    },
+    {
+      "key": "PYTORCH_CUDA_ALLOC_CONF",
+      "value": "max_split_size_mb:512"
+    }
+  ],
+  "gpuCount": 1,
+  "gpuTypeIds": ["NVIDIA RTX A4000", "NVIDIA RTX A5000", "NVIDIA RTX 3080", "NVIDIA RTX 3090", "NVIDIA RTX 4080", "NVIDIA RTX 4090"],
+  "cloudType": "SECURE",
+  "startJupyter": false,
+  "startSsh": true,
+  "imageName": "your-registry/hunyuan-avatar:latest"
+} 
