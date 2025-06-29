@@ -13,6 +13,8 @@ ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
 # Flash Attention compilation environment
 ENV FLASH_ATTENTION_FORCE_BUILD=TRUE
 ENV FLASH_ATTENTION_FORCE_CUT=TRUE
+ENV NVCC_PREPEND_FLAGS='--keep --keep-dir /tmp'
+ENV TORCH_CUDA_ARCH_LIST="8.0"
 
 # Install system dependencies including ninja for flash_attn compilation
 RUN apt-get update && apt-get install -y \
@@ -48,11 +50,11 @@ WORKDIR /workspace
 # Copy requirements first (for better Docker layer caching)
 COPY requirements-minimal.txt requirements.txt ./
 
-# Install Python dependencies with optimized flash_attn compilation
+# Install Python dependencies with memory-optimized flash_attn compilation
 RUN pip3 install --no-cache-dir --upgrade pip && \
     pip3 install --no-cache-dir torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu124 && \
     pip3 install --no-cache-dir packaging ninja && \
-    MAX_JOBS=4 pip3 install --no-cache-dir flash-attn==2.6.3 --no-build-isolation --verbose && \
+    TORCH_CUDA_ARCH_LIST="8.0" MAX_JOBS=1 NVCC_THREADS=1 pip3 install --no-cache-dir flash-attn==2.6.3 --no-build-isolation --timeout 7200 --verbose && \
     pip3 install --no-cache-dir -r requirements.txt && \
     pip3 install --no-cache-dir huggingface-hub[cli]
 
