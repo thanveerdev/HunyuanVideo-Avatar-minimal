@@ -48,11 +48,11 @@ WORKDIR /workspace
 # Copy requirements first (for better Docker layer caching)
 COPY requirements-minimal.txt requirements.txt ./
 
-# Install Python dependencies in specific order for flash_attn compatibility
+# Install Python dependencies with GitHub flash_attn (much faster)
 RUN pip3 install --no-cache-dir --upgrade pip && \
     pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124 && \
     pip3 install --no-cache-dir packaging ninja && \
-    pip3 install --no-cache-dir flash_attn --no-build-isolation && \
+    pip3 install --no-cache-dir flash_attn --find-links https://github.com/Dao-AILab/flash-attention/releases && \
     pip3 install --no-cache-dir -r requirements.txt && \
     pip3 install --no-cache-dir huggingface-hub[cli]
 
