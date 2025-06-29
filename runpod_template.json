@@ -5,7 +5,7 @@
   "containerDiskInGb": 50,
   "volumeInGb": 100,
   "volumeMountPath": "/runpod-volume",
-  "ports": "7860/http,8000/http",
+  "ports": "7860/http,80/http,8000/http",
   "env": [
     {
       "key": "MODEL_BASE",
@@ -18,6 +18,10 @@
     {
       "key": "PYTORCH_CUDA_ALLOC_CONF",
       "value": "max_split_size_mb:512"
+    },
+    {
+      "key": "RUN_MODE",
+      "value": "web"
     }
   ],
   "gpuCount": 1,

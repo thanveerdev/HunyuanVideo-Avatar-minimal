@@ -10,6 +10,7 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - MODEL_BASE=/workspace
       - CUDA_VISIBLE_DEVICES=0
+      - RUN_MODE=web  # Set to 'web' to start Gradio interface automatically
     volumes:
       # Mount local directories for development
       - ./outputs:/workspace/outputs
@@ -18,8 +19,9 @@ services:
       # Optional: Mount local weights if you have them
       # - ./weights:/workspace/weights
     ports:
-      - "7860:7860"  # Gradio interface (if enabled)
-      - "8000:8000"  # FastAPI interface (if enabled)
+      - "7860:7860"  # Gradio interface
+      - "80:80"      # FastAPI backend
+      - "8000:8000"  # Alternative FastAPI port
     stdin_open: true
     tty: true
     deploy:

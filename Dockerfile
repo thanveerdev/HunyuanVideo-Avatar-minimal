@@ -46,11 +46,12 @@ COPY requirements-minimal.txt requirements.txt ./
 # Install Python dependencies
 RUN pip3 install --no-cache-dir --upgrade pip && \
     pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124 && \
-    pip3 install --no-cache-dir -r requirements-minimal.txt && \
+    pip3 install --no-cache-dir -r requirements.txt && \
     pip3 install --no-cache-dir huggingface-hub[cli]
 
 # Copy application code
 COPY hymm_sp/ ./hymm_sp/
+COPY hymm_gradio/ ./hymm_gradio/
 COPY assets/ ./assets/
 COPY config_minimal.py ./
 COPY *.sh ./
@@ -77,8 +78,8 @@ ENV CUDA_CACHE_DISABLE=1
 ENV RUNPOD_POD_ID=${RUNPOD_POD_ID:-""}
 ENV RUNPOD_PUBLIC_IP=${RUNPOD_PUBLIC_IP:-""}
 
-# Expose ports for potential web interface
-EXPOSE 7860 8000
+# Expose ports for web interface
+EXPOSE 7860 8000 80
 
 # Set startup command
 CMD ["/workspace/docker_startup.sh"] 

@@ -1,0 +1,53 @@
+# Test Dependencies for HunyuanVideo-Avatar-Minimal
+# Core testing framework
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-xdist>=3.3.0
+pytest-benchmark>=4.0.0
+pytest-mock>=3.11.0
+pytest-asyncio>=0.21.0
+
+# Performance and memory testing
+pytest-monitor>=1.6.0
+memory-profiler>=0.60.0
+psutil>=5.9.0
+
+# ML/AI testing utilities
+torch-testing>=0.0.2
+
+# Test data generation
+faker>=19.0.0
+factory-boy>=3.3.0
+
+# Video/Audio testing
+opencv-python>=4.7.0
+librosa>=0.10.0
+soundfile>=0.12.0
+
+# Mocking and fixtures
+responses>=0.23.0
+pytest-httpserver>=1.0.0
+
+# Test reporting
+pytest-html>=3.2.0
+pytest-json-report>=1.5.0
+
+# Code quality
+flake8>=6.0.0
+black>=23.0.0
+isort>=5.12.0
+
+# Type checking
+mypy>=1.5.0
+types-requests>=2.31.0
+
+# Security testing
+bandit>=1.7.0
+safety>=2.3.0
+
+# Docker testing
+docker>=6.1.0
+testcontainers>=3.7.0
+
+# Environment management
+python-dotenv>=1.0.0 

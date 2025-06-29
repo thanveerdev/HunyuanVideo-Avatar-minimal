@@ -156,15 +156,27 @@ echo "Model Base: $MODEL_BASE"
 echo "Outputs: /workspace/outputs"
 echo "Sample Input: test_input.csv"
 echo ""
+echo "🌐 Web Interface Available!"
+echo "- Run: bash run_web_demo.sh"  
+echo "- Access: http://localhost:7860"
+echo ""
 
-# Check if this is an interactive session or batch mode
-if [ -t 0 ]; then
+# Check run mode from environment variable or interactive session
+RUN_MODE=${RUN_MODE:-"interactive"}
+
+if [ "$RUN_MODE" = "web" ]; then
+    # Web interface mode
+    print_status "Web interface mode detected - starting Gradio UI"
+    exec bash run_web_demo.sh
+    
+elif [ -t 0 ]; then
     # Interactive mode
     print_status "Interactive mode detected"
     echo "Available commands:"
     echo "  1. bash run_minimal.sh          - Ultra low VRAM mode"
     echo "  2. bash run_low_memory.sh       - Standard low memory mode"
-    echo "  3. python3 -m hymm_sp.low_memory_inference --help - Manual mode"
+    echo "  3. bash run_web_demo.sh         - Web interface (Gradio UI)"
+    echo "  4. python3 -m hymm_sp.low_memory_inference --help - Manual mode"
     echo ""
     echo "To start generation, run one of the above commands"
     echo "or modify test_input.csv with your own inputs"

@@ -1,4 +1,6 @@
 import os
+import gc
+import time
 import numpy as np
 from pathlib import Path
 from loguru import logger
@@ -13,97 +15,360 @@ from hymm_sp.audio_video_inference import HunyuanVideoSampler
 from hymm_sp.data_kits.audio_dataset import VideoAudioTextLoaderVal
 from hymm_sp.data_kits.face_align import AlignImage
 
+# Import config for memory optimization
+import sys
+sys.path.append('./')
+from config_minimal import (
+    apply_memory_optimizations, 
+    get_recommended_config,
+    get_dynamic_memory_config,
+    monitor_and_cleanup_memory,
+    print_memory_info,
+    setup_ultra_low_vram_mode
+)
+
 from transformers import WhisperModel
 from transformers import AutoFeatureExtractor
 
-MODEL_OUTPUT_PATH = os.environ.get('MODEL_BASE')
+MODEL_OUTPUT_PATH = os.environ.get('MODEL_BASE', os.getcwd())
 
+def setup_ultra_low_memory():
+    """Setup the most aggressive memory optimizations."""
+    
+    # Apply base optimizations
+    apply_memory_optimizations()
+    
+    # Get GPU memory info
+    if torch.cuda.is_available():
+        gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1024**3
+        print(f"🔍 GPU Memory Available: {gpu_memory:.1f} GB")
+        
+        if gpu_memory <= 6:
+            print("🚨 Ultra-low VRAM detected - applying extreme optimizations")
+            setup_ultra_low_vram_mode()
+        elif gpu_memory <= 8:
+            print("⚠️  Low VRAM detected - applying aggressive optimizations")
+            os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128,garbage_collection_threshold:0.6"
+        
+        # Set memory fraction based on available VRAM
+        if gpu_memory <= 6:
+            torch.cuda.set_per_process_memory_fraction(0.75)  # Very conservative
+        elif gpu_memory <= 8:
+            torch.cuda.set_per_process_memory_fraction(0.8)
+        else:
+            torch.cuda.set_per_process_memory_fraction(0.85)
+            
+        # Clear any existing cache
+        torch.cuda.empty_cache()
+        gc.collect()
+    
+    print("✅ Ultra-low memory setup completed")
+
+def cleanup_memory():
+    """Aggressive memory cleanup between processing steps."""
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
+    time.sleep(0.1)  # Brief pause to allow cleanup
+
+def monitor_memory_usage(step_name=""):
+    """Monitor and log memory usage."""
+    if torch.cuda.is_available():
+        memory_allocated = torch.cuda.memory_allocated() / 1024**3
+        memory_total = torch.cuda.get_device_properties(0).total_memory / 1024**3
+        usage_percent = (memory_allocated / memory_total) * 100
+        
+        if step_name:
+            print(f"📊 {step_name} - VRAM: {memory_allocated:.1f}GB ({usage_percent:.1f}%)")
+        
+        # Trigger cleanup if memory usage is high
+        if usage_percent > 80:
+            print("🧹 High memory usage detected - cleaning up...")
+            cleanup_memory()
+            return True
+    return False
+
+def load_models_with_offloading(args, device):
+    """Load models with aggressive CPU offloading for low VRAM."""
+    print("🚀 Loading models with ultra-low VRAM optimizations...")
+    
+    # Get memory config
+    config = get_recommended_config()
+    print(f"🎯 Using preset: {config}")
+    
+    # Apply config to args
+    args.image_size = config.get('image_size', 256)
+    args.cpu_offload = config.get('cpu_offload', True)
+    args.mixed_precision = config.get('mixed_precision', True)
+    args.infer_min = config.get('infer_min', True)
+    
+    monitor_memory_usage("Before model loading")
+    
+    # Load main model with optimizations
+    hunyuan_video_sampler = HunyuanVideoSampler.from_pretrained(
+        args.ckpt, 
+        args=args, 
+        device=device,
+        torch_dtype=torch.float16 if args.mixed_precision else torch.float32
+    )
+    
+    monitor_memory_usage("After main model loading")
+    
+    # Apply CPU offloading if enabled
+    if args.cpu_offload:
+        print("🔄 Applying CPU offloading...")
+        try:
+            from diffusers.hooks import apply_group_offloading
+            onload_device = torch.device("cuda")
+            apply_group_offloading(
+                hunyuan_video_sampler.pipeline.transformer, 
+                onload_device=onload_device, 
+                offload_type="block_level", 
+                num_blocks_per_group=1
+            )
+            print("✅ CPU offloading applied")
+        except Exception as e:
+            print(f"⚠️  CPU offloading failed: {e}")
+    
+    monitor_memory_usage("After CPU offloading")
+    
+    # Load Whisper with minimal memory footprint
+    print("🎵 Loading Whisper model...")
+    whisper_path = f"{MODEL_OUTPUT_PATH}/ckpts/whisper-tiny/"
+    wav2vec = WhisperModel.from_pretrained(
+        whisper_path,
+        torch_dtype=torch.float16 if args.mixed_precision else torch.float32
+    ).to(device=device)
+    wav2vec.requires_grad_(False)
+    
+    # Offload Whisper to CPU immediately after loading
+    if args.cpu_offload:
+        wav2vec = wav2vec.cpu()
+        print("🔄 Whisper model offloaded to CPU")
+    
+    monitor_memory_usage("After Whisper loading")
+    
+    # Load face alignment
+    print("👤 Loading face alignment...")
+    BASE_DIR = f'{MODEL_OUTPUT_PATH}/ckpts/det_align/'
+    det_path = os.path.join(BASE_DIR, 'detface.pt')    
+    align_instance = AlignImage("cuda", det_path=det_path)
+    
+    monitor_memory_usage("After face alignment loading")
+    
+    # Load feature extractor
+    feature_extractor = AutoFeatureExtractor.from_pretrained(whisper_path)
+    
+    cleanup_memory()
+    monitor_memory_usage("After cleanup")
+    
+    return hunyuan_video_sampler, wav2vec, align_instance, feature_extractor
+
+def process_batch_ultra_low_memory(args, batch, hunyuan_video_sampler, wav2vec, feature_extractor, align_instance):
+    """Process a single batch with ultra-low memory optimizations."""
+    
+    fps = batch["fps"]
+    videoid = batch['videoid'][0]
+    audio_path = str(batch["audio_path"][0])
+    save_path = args.save_path 
+    output_path = f"{save_path}/{videoid}.mp4"
+    output_audio_path = f"{save_path}/{videoid}_audio.mp4"
+    
+    print(f"🎬 Processing: {videoid}")
+    monitor_memory_usage("Before processing")
+    
+    # Move Whisper back to GPU temporarily if offloaded
+    if args.cpu_offload and wav2vec.device.type == 'cpu':
+        print("🔄 Moving Whisper to GPU...")
+        wav2vec = wav2vec.cuda()
+    
+    # Adjust audio length for minimal inference
+    if args.infer_min:
+        batch["audio_len"][0] = min(129, batch["audio_len"][0])
+    
+    # Dynamic memory adjustment
+    dynamic_config = get_dynamic_memory_config()
+    if isinstance(dynamic_config, dict) and 'image_size' in dynamic_config:
+        # Adjust image size dynamically if memory is critically low
+        if dynamic_config['image_size'] < args.image_size:
+            print(f"⚠️  Reducing image size from {args.image_size} to {dynamic_config['image_size']} due to low memory")
+            args.image_size = dynamic_config['image_size']
+    
+    monitor_memory_usage("Before inference")
+    
+    # Main inference with memory monitoring
+    try:
+        samples = hunyuan_video_sampler.predict(args, batch, wav2vec, feature_extractor, align_instance)
+        monitor_memory_usage("After inference")
+        
+    except torch.cuda.OutOfMemoryError as e:
+        print("❌ CUDA Out of Memory Error!")
+        print("🔧 Trying emergency memory recovery...")
+        
+        # Emergency cleanup
+        cleanup_memory()
+        
+        # Try with even more aggressive settings
+        original_image_size = args.image_size
+        args.image_size = max(128, args.image_size // 2)
+        batch["audio_len"][0] = min(64, batch["audio_len"][0])
+        
+        print(f"🚨 Emergency mode: image_size={args.image_size}, audio_len={batch['audio_len'][0]}")
+        
+        try:
+            samples = hunyuan_video_sampler.predict(args, batch, wav2vec, feature_extractor, align_instance)
+            print("✅ Emergency recovery successful!")
+        except Exception as e2:
+            print(f"❌ Emergency recovery failed: {e2}")
+            raise e2
+        finally:
+            args.image_size = original_image_size
+    
+    # Move Whisper back to CPU to free up VRAM
+    if args.cpu_offload:
+        wav2vec = wav2vec.cpu()
+        cleanup_memory()
+    
+    # Process samples
+    sample = samples['samples'][0].unsqueeze(0)
+    sample = sample[:, :, :batch["audio_len"][0]]
+    
+    monitor_memory_usage("After sample processing")
+    
+    # Convert to video frames
+    video = rearrange(sample[0], "c f h w -> f h w c")
+    video = (video * 255.).data.cpu().numpy().astype(np.uint8)
+    
+    # Clear GPU memory
+    del samples, sample
+    cleanup_memory()
+    monitor_memory_usage("After video conversion")
+    
+    # Prepare final frames
+    final_frames = []
+    for frame in video:
+        final_frames.append(frame)
+    final_frames = np.stack(final_frames, axis=0)
+    
+    # Save video
+    print(f"💾 Saving video: {output_path}")
+    imageio.mimsave(output_path, final_frames, fps=fps.item())
+    
+    # Add audio with ffmpeg
+    print(f"🎵 Adding audio: {output_audio_path}")
+    os.system(f"ffmpeg -i '{output_path}' -i '{audio_path}' -shortest '{output_audio_path}' -y -loglevel quiet; rm '{output_path}'")
+    
+    # Final cleanup
+    del final_frames, video
+    cleanup_memory()
+    
+    print(f"✅ Completed: {videoid}")
+    return output_audio_path
 
 def main():
+    print("🚀 Starting Ultra-Low VRAM HunyuanVideo-Avatar Inference")
+    print("=" * 60)
+    
+    # Parse arguments
     args = parse_args()
     models_root_path = Path(args.ckpt)
 
     if not models_root_path.exists():
         raise ValueError(f"`models_root` not exists: {models_root_path}")
 
-    # Create save folder to save the samples
+    # Setup ultra-low memory optimizations
+    setup_ultra_low_memory()
+    
+    # Create save folder
     save_path = args.save_path if args.save_path_suffix=="" else f'{args.save_path}_{args.save_path_suffix}'
-    if not os.path.exists(args.save_path):
+    if not os.path.exists(save_path):
         os.makedirs(save_path, exist_ok=True)
 
-    # Load models
+    # Setup device
     rank = 0
-    vae_dtype = torch.float16
-    device = torch.device("cuda")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
-    hunyuan_video_sampler = HunyuanVideoSampler.from_pretrained(args.ckpt, args=args, device=device)
-    # Get the updated args
+    if not torch.cuda.is_available():
+        print("❌ CUDA not available! This will be very slow on CPU.")
+        print("⚠️  Consider using a GPU for practical inference times.")
+    
+    print_memory_info()
+    
+    # Load models with optimizations
+    hunyuan_video_sampler, wav2vec, align_instance, feature_extractor = load_models_with_offloading(args, device)
+    
+    # Get updated args from sampler
     args = hunyuan_video_sampler.args
-    if args.cpu_offload:
-        from diffusers.hooks import apply_group_offloading
-        onload_device = torch.device("cuda")
-        apply_group_offloading(hunyuan_video_sampler.pipeline.transformer, onload_device=onload_device, offload_type="block_level", num_blocks_per_group=1)
-
-    wav2vec = WhisperModel.from_pretrained(f"{MODEL_OUTPUT_PATH}/ckpts/whisper-tiny/").to(device=device, dtype=torch.float32)
-    wav2vec.requires_grad_(False)
     
-    BASE_DIR = f'{MODEL_OUTPUT_PATH}/ckpts/det_align/'
-    det_path = os.path.join(BASE_DIR, 'detface.pt')    
-    align_instance = AlignImage("cuda", det_path=det_path)
+    print(f"🔧 Configuration:")
+    print(f"   Image size: {args.image_size}")
+    print(f"   CPU offload: {args.cpu_offload}")
+    print(f"   Mixed precision: {args.mixed_precision}")
+    print(f"   Minimal inference: {args.infer_min}")
     
-    feature_extractor = AutoFeatureExtractor.from_pretrained(f"{MODEL_OUTPUT_PATH}/ckpts/whisper-tiny/")
-
+    # Setup dataset
     kwargs = {
-            "text_encoder": hunyuan_video_sampler.text_encoder, 
-            "text_encoder_2": hunyuan_video_sampler.text_encoder_2, 
-            "feature_extractor": feature_extractor, 
-        }
+        "text_encoder": hunyuan_video_sampler.text_encoder, 
+        "text_encoder_2": hunyuan_video_sampler.text_encoder_2, 
+        "feature_extractor": feature_extractor, 
+    }
+    
     video_dataset = VideoAudioTextLoaderVal(
-            image_size=args.image_size,
-            meta_file=args.input, 
-            **kwargs,
-        )
+        image_size=args.image_size,
+        meta_file=args.input, 
+        **kwargs,
+    )
 
     sampler = DistributedSampler(video_dataset, num_replicas=1, rank=0, shuffle=False, drop_last=False)
     json_loader = DataLoader(video_dataset, batch_size=1, shuffle=False, sampler=sampler, drop_last=False)
 
-    for batch_index, batch in enumerate(json_loader, start=1):
-
-        fps = batch["fps"]
-        videoid = batch['videoid'][0]
-        audio_path = str(batch["audio_path"][0])
-        save_path = args.save_path 
-        output_path = f"{save_path}/{videoid}.mp4"
-        output_audio_path = f"{save_path}/{videoid}_audio.mp4"
-
-        if args.infer_min:
-            batch["audio_len"][0] = 129
-            
-        samples = hunyuan_video_sampler.predict(args, batch, wav2vec, feature_extractor, align_instance)
-        
-        sample = samples['samples'][0].unsqueeze(0)                    # denoised latent, (bs, 16, t//4, h//8, w//8)
-        sample = sample[:, :, :batch["audio_len"][0]]
-        
-        video = rearrange(sample[0], "c f h w -> f h w c")
-        video = (video * 255.).data.cpu().numpy().astype(np.uint8)  # （f h w c)
-        
-        torch.cuda.empty_cache()
-
-        final_frames = []
-        for frame in video:
-            final_frames.append(frame)
-        final_frames = np.stack(final_frames, axis=0)
-        
-        if rank == 0:
-            imageio.mimsave(output_path, final_frames, fps=fps.item())
-            os.system(f"ffmpeg -i '{output_path}' -i '{audio_path}' -shortest '{output_audio_path}' -y -loglevel quiet; rm '{output_path}'")
-
-
-
-
-
-
+    print(f"📁 Processing {len(video_dataset)} samples...")
     
+    # Process each batch
+    successful_generations = 0
+    total_time = 0
+    
+    for batch_index, batch in enumerate(json_loader, start=1):
+        start_time = time.time()
+        
+        print(f"\n🎬 Processing batch {batch_index}/{len(video_dataset)}")
+        
+        try:
+            output_path = process_batch_ultra_low_memory(
+                args, batch, hunyuan_video_sampler, wav2vec, feature_extractor, align_instance
+            )
+            
+            batch_time = time.time() - start_time
+            total_time += batch_time
+            successful_generations += 1
+            
+            print(f"⏱️  Batch {batch_index} completed in {batch_time:.1f}s")
+            print(f"💾 Output saved: {output_path}")
+            
+        except Exception as e:
+            print(f"❌ Error processing batch {batch_index}: {e}")
+            print("🔄 Continuing with next batch...")
+            continue
+        
+        # Memory monitoring between batches
+        monitor_memory_usage(f"After batch {batch_index}")
+        
+        # Periodic cleanup
+        if batch_index % 3 == 0:
+            print("🧹 Periodic cleanup...")
+            cleanup_memory()
+    
+    # Final statistics
+    print("\n" + "=" * 60)
+    print("🎉 Ultra-Low VRAM Inference Completed!")
+    print(f"✅ Successful generations: {successful_generations}/{len(video_dataset)}")
+    print(f"⏱️  Total time: {total_time:.1f}s")
+    if successful_generations > 0:
+        print(f"📊 Average time per video: {total_time/successful_generations:.1f}s")
+    
+    print_memory_info()
+    print("🏁 Done!")
+
 if __name__ == "__main__":
     main()
     

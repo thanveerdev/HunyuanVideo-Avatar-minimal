@@ -73,7 +73,15 @@ export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:1024
 
 ## 🎬 Usage
 
-### Low Memory Inference (Recommended)
+### Web Interface (Easiest) 🌐
+```bash
+# Start the web interface with Gradio UI
+bash run_web_demo.sh
+
+# Then open your browser to: http://localhost:7860
+```
+
+### Low Memory Inference (Command Line)
 ```bash
 # Using the optimized low memory script
 bash run_low_memory.sh
@@ -133,6 +141,12 @@ HunyuanVideo-Avatar-minimal/
 ├── weights/                   # Model weights (download required)
 ├── run_low_memory.sh         # Low VRAM launch script
 ├── run_single_inference.sh   # Single inference script
+├── run_web_demo.sh           # Web interface launcher
+├── run_fastapi_server.sh     # FastAPI backend server
+├── hymm_gradio/              # Web interface components
+│   ├── web_demo.py          # Gradio frontend
+│   ├── fastapi_server.py    # FastAPI backend
+│   └── pipeline_utils.py    # Web processing utilities
 └── requirements.txt          # Python dependencies
 ```
 
@@ -166,9 +180,28 @@ HunyuanVideo-Avatar-minimal/
 - **RTX 3080/4070**: ~45-60 seconds per 5-second video  
 - **RTX 4080/4090**: ~30-45 seconds per 5-second video
 
+## 🌐 Web Interface
+
+For a user-friendly browser-based interface:
+```bash
+# Start web interface
+bash run_web_demo.sh
+
+# Access at: http://localhost:7860
+```
+
+**Features:**
+- Drag-and-drop file uploads
+- Real-time generation progress
+- Automatic GPU optimization
+- Browser-based video playback
+
+See `README_WEB_INTERFACE.md` for detailed web interface documentation.
+
 ## 🆘 Support
 - Check `weights/README.md` for model download instructions
 - Monitor GPU memory usage: `nvidia-smi -l 1`
+- For web interface issues, see `README_WEB_INTERFACE.md`
 - For issues, ensure CUDA and PyTorch versions are compatible
 
 ## 📄 License
