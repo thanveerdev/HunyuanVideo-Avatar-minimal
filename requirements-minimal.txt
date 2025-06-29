@@ -11,6 +11,9 @@ diffusers>=0.20.0
 transformers>=4.30.0
 accelerate>=0.20.0
 
+# Critical Dependencies
+flash_attn>=2.3.0  # Required for efficient attention mechanisms
+
 # Computer Vision
 opencv-python>=4.7.0
 pillow>=9.5.0
