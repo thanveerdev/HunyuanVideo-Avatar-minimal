@@ -60,6 +60,10 @@ logs/
 *.out
 *.err
 
+# RunPod logs
+My Pods Logs*.txt
+*Pods Logs*.txt
+
 # Temporary files
 temp/
 tmp/
