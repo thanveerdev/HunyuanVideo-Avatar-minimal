@@ -1,10 +1,10 @@
 # Minimal Requirements for Low VRAM Deployment
 # Optimized for single GPU setup with memory constraints
 
-# Core ML Framework
-torch>=2.0.0
-torchvision>=0.15.0
-torchaudio>=2.0.0
+# Core ML Framework - Fixed compatible versions
+torch==2.1.0
+torchvision==0.16.0
+torchaudio==2.1.0
 
 # Diffusion and Generation
 diffusers>=0.20.0

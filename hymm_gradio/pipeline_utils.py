@@ -5,13 +5,68 @@ import uuid
 import base64
 import imageio
 import torch
-import torchvision
+
+# Handle torchvision import with version compatibility
+try:
+    import torchvision
+    import torchvision.transforms as transforms
+    from torchvision.transforms import ToPILImage
+    TORCHVISION_AVAILABLE = True
+    print("✅ TorchVision loaded successfully")
+except Exception as e:
+    print(f"⚠️  TorchVision import failed: {e}")
+    print("⚠️  Using torch-only fallback for transforms")
+    TORCHVISION_AVAILABLE = False
+    
+    # Fallback transform classes
+    class ToPILImage:
+        def __call__(self, tensor):
+            from PIL import Image
+            import numpy as np
+            if tensor.dim() == 3:
+                tensor = tensor.permute(1, 2, 0)
+            array = (tensor.cpu().numpy() * 255).astype(np.uint8)
+            return Image.fromarray(array)
+    
+    # Basic transforms module fallback
+    class TransformsFallback:
+        class Compose:
+            def __init__(self, transforms):
+                self.transforms = transforms
+            def __call__(self, img):
+                for t in self.transforms:
+                    img = t(img)
+                return img
+        
+        class Resize:
+            def __init__(self, size, interpolation=None):
+                self.size = size
+            def __call__(self, img):
+                return img.resize(self.size, Image.LANCZOS if hasattr(Image, 'LANCZOS') else Image.BICUBIC)
+        
+        class ToTensor:
+            def __call__(self, img):
+                import numpy as np
+                array = np.array(img)
+                if array.ndim == 3:
+                    array = array.transpose(2, 0, 1)
+                return torch.from_numpy(array).float() / 255.0
+        
+        class Normalize:
+            def __init__(self, mean, std):
+                self.mean = torch.tensor(mean).view(-1, 1, 1)
+                self.std = torch.tensor(std).view(-1, 1, 1)
+            def __call__(self, tensor):
+                return (tensor - self.mean) / self.std
+        
+        InterpolationMode = type('InterpolationMode', (), {'BILINEAR': 'bilinear'})()
+    
+    transforms = TransformsFallback()
+
 from PIL import Image
 import numpy as np
 from copy import deepcopy
 from einops import rearrange
-import torchvision.transforms as transforms
-from torchvision.transforms import ToPILImage
 from hymm_sp.data_kits.audio_dataset import get_audio_feature
 
 TEMP_DIR = "./temp"
@@ -91,7 +146,15 @@ def save_videos_grid(videos: torch.Tensor, path: str, rescale=False, n_rows=6, f
     videos = rearrange(videos, "b c t h w -> t b c h w")
     outputs = []
     for x in videos:
-        x = torchvision.utils.make_grid(x, nrow=n_rows)
+        # Use torchvision.utils.make_grid if available, otherwise fallback to simple grid
+        if TORCHVISION_AVAILABLE:
+            x = torchvision.utils.make_grid(x, nrow=n_rows)
+        else:
+            # Simple fallback: just use the first video if torchvision unavailable
+            print("⚠️  Using simple video output (torchvision unavailable)")
+            if len(x) > 0:
+                x = x[0]
+        
         x = x.transpose(0, 1).transpose(1, 2).squeeze(-1)
         if rescale:
             x = (x + 1.0) / 2.0  # -1,1 -> 0,1
