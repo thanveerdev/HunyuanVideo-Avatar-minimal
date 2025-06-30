@@ -1,0 +1,126 @@
+version: '3.8'
+
+services:
+  hunyuan-video-avatar-flash-attn:
+    build:
+      context: .
+      dockerfile: Dockerfile.flash-attn
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    image: hunyuan-video-avatar-flash-attn:cuda12.4-cudnn-ubuntu22.04
+    container_name: hunyuan-avatar-flash-attn
+    
+    # GPU configuration for Flash Attention
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    
+    # Alternative GPU configuration (if deploy doesn't work)
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      
+      # Flash Attention environment
+      - FLASH_ATTENTION_FORCE_BUILD=TRUE
+      - FLASH_ATTENTION_FORCE_CUT=TRUE
+      - TORCH_CUDA_ARCH_LIST=8.0;8.6;8.9;9.0
+      
+      # CUDA environment
+      - CUDA_HOME=/usr/local/cuda
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+      - CUDA_LAUNCH_BLOCKING=1
+      - CUDA_CACHE_DISABLE=1
+      
+      # cuDNN environment (optimized for Flash Attention)
+      - CUDNN_ALLOW_TF32=1
+      - TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1
+      - TORCH_CUDNN_V8_API_ENABLED=1
+      
+      # Memory optimization
+      - OMP_NUM_THREADS=4
+      - PYTORCH_NO_CUDA_MEMORY_CACHING=1
+      
+      # RunPod compatibility
+      - RUNPOD_POD_ID=${RUNPOD_POD_ID:-""}
+      - RUNPOD_PUBLIC_IP=${RUNPOD_PUBLIC_IP:-""}
+      
+      # Application settings
+      - MODEL_BASE=/workspace
+      - PYTHONUNBUFFERED=1
+    
+    ports:
+      - "7860:7860"  # Gradio web interface
+      - "8000:8000"  # FastAPI server
+      - "80:80"      # HTTP server
+    
+    volumes:
+      # Mount weights directory for persistent model storage
+      - ./weights:/workspace/weights
+      - ./outputs:/workspace/outputs
+      - ./logs:/workspace/logs
+      - ./inputs:/workspace/inputs
+      
+      # Mount for development (optional - comment out for production)
+      - ./hymm_sp:/workspace/hymm_sp
+      - ./hymm_gradio:/workspace/hymm_gradio
+      
+      # Mount test results
+      - ./test-results:/workspace/test-results
+    
+    # Health check specifically for Flash Attention
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import flash_attn; import torch; print('OK')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Resource limits (adjust based on your system)
+    mem_limit: 32g
+    memswap_limit: 32g
+    shm_size: 8g
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  # Optional: Nginx reverse proxy for production
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: hunyuan-nginx-proxy
+    ports:
+      - "443:443"
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - hunyuan-video-avatar-flash-attn
+    restart: unless-stopped
+    profiles:
+      - production
+
+volumes:
+  weights:
+    driver: local
+  outputs:
+    driver: local
+  logs:
+    driver: local
+  test-results:
+    driver: local
+
+networks:
+  default:
+    driver: bridge 

@@ -17,3 +17,20 @@ decord==0.6.0
 librosa==0.11.0
 scikit-video==1.1.11
 ffmpeg
+
+# Flash Attention - CRITICAL DEPENDENCY
+flash-attn==2.6.3
+
+# Additional dependencies for RunPod deployment
+torch==2.4.0
+torchvision==0.19.0
+torchaudio==2.4.0
+pillow>=9.5.0
+soundfile>=0.12.0
+scipy>=1.10.0
+omegaconf>=2.3.0
+psutil>=5.9.0
+huggingface-hub[cli]
+
+# Memory optimization package
+mmgp==3.4.9
