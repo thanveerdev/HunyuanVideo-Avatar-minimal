@@ -1,7 +1,13 @@
 # HunyuanVideo-Avatar Docker Container for RunPod
 # Optimized for single GPU deployment with model weights downloaded on first run
 
-FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
+# Use specific RunPod base image with Python 3.12, CUDA 12.4.1, PyTorch 2.6.0
+FROM ashleykza/runpod-base:2.4.2-python3.12-cuda12.4.1-torch2.6.0
+
+# Alternative for CUDA 11.8 (uncomment to use):
+# FROM nvidia/cuda:11.8-devel-ubuntu22.04
+# RUN apt-get update && apt-get install -y python3 python3-pip python3-dev git ffmpeg && \
+#     pip3 install --no-cache-dir torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu118
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
@@ -16,32 +22,14 @@ ENV FLASH_ATTENTION_FORCE_CUT=TRUE
 ENV NVCC_PREPEND_FLAGS='--keep --keep-dir /tmp'
 ENV TORCH_CUDA_ARCH_LIST="8.0"
 
-# Install system dependencies including ninja for flash_attn compilation
+# Install essential system packages
 RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-dev \
     git \
-    wget \
-    curl \
     ffmpeg \
     libsm6 \
     libxext6 \
     libxrender-dev \
     libglib2.0-0 \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    libgtk-3-0 \
-    libavcodec-dev \
-    libavformat-dev \
-    libswscale-dev \
-    libavutil-dev \
-    libavdevice-dev \
-    libavfilter-dev \
-    libpostproc-dev \
-    build-essential \
-    cmake \
-    ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -50,12 +38,9 @@ WORKDIR /workspace
 # Copy requirements first (for better Docker layer caching)
 COPY requirements-minimal.txt requirements.txt ./
 
-# Install Python dependencies with optimized flash_attn installation
+# Install Python dependencies with alternative flash_attn installation strategy
 RUN pip3 install --no-cache-dir --upgrade pip --verbose && \
-    pip3 install --no-cache-dir torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu124 --verbose && \
-    pip3 install --no-cache-dir packaging ninja --verbose && \
-    (pip3 install --no-cache-dir flash-attn==2.6.3 --find-links https://flash-attention.s3.amazonaws.com/releases/ --verbose || \
-     TORCH_CUDA_ARCH_LIST="8.0" MAX_JOBS=2 NVCC_THREADS=2 pip3 install --no-cache-dir flash-attn==2.6.3 --no-build-isolation --timeout 7200 --verbose) && \
+    pip3 install --no-cache-dir flash-attn==2.6.3 --verbose && \
     pip3 install --no-cache-dir -r requirements.txt --verbose && \
     pip3 install --no-cache-dir huggingface-hub[cli] --verbose
 
