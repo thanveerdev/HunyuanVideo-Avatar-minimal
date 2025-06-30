@@ -56,6 +56,13 @@ COPY config_minimal.py ./
 COPY *.sh ./
 COPY README.md LICENSE ./
 
+# Copy TorchVision compatibility fix files
+COPY apply_torchvision_fix.py ./
+COPY test_torchvision_fix_simple.py ./
+COPY setup_auto_torchvision_fix.sh ./
+COPY fix_torchvision_compatibility.py ./
+COPY .env_torchvision_fix ./
+
 # Create necessary directories
 RUN mkdir -p /workspace/weights /workspace/outputs /workspace/logs /workspace/inputs
 
