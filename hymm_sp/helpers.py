@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+import os
+import gc
 import torch
 from typing import Union, List
 from hymm_sp.modules.posemb_layers import get_1d_rotary_pos_embed, get_meshgrid_nd
@@ -5,6 +8,33 @@ from hymm_sp.modules.posemb_layers import get_1d_rotary_pos_embed, get_meshgrid_
 from itertools import repeat
 import collections.abc
 
+
+def env_to_bool_int(env_var, default=0):
+    """Convert environment variable to boolean integer (0 or 1).
+    
+    Handles string values like 'true', 'false', '1', '0', etc.
+    
+    Args:
+        env_var (str): Environment variable name
+        default (int): Default value if env var not set
+        
+    Returns:
+        int: 0 or 1
+    """
+    value = os.environ.get(env_var, str(default)).lower().strip()
+    
+    # Handle boolean-like strings
+    if value in ('true', 'yes', 'on', '1'):
+        return 1
+    elif value in ('false', 'no', 'off', '0'):
+        return 0
+    else:
+        # Try to parse as integer
+        try:
+            return int(float(value))  # Handle float strings like '1.0'
+        except (ValueError, TypeError):
+            print(f"⚠️  Invalid boolean value for {env_var}: '{value}', using default: {default}")
+            return default
 
 def _ntuple(n):
     def parse(x):

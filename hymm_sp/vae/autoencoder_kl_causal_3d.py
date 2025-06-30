@@ -113,8 +113,11 @@ class DecoderOutput2(BaseOutput):
 MODEL_OUTPUT_PATH = os.environ.get('MODEL_OUTPUT_PATH')
 MODEL_BASE = os.environ.get('MODEL_BASE')
 
-CPU_OFFLOAD = int(os.environ.get("CPU_OFFLOAD", 0))
-DISABLE_SP = int(os.environ.get("DISABLE_SP", 0))
+# Import helper function for boolean environment variables
+from ..helpers import env_to_bool_int
+
+CPU_OFFLOAD = env_to_bool_int("CPU_OFFLOAD", 0)
+DISABLE_SP = env_to_bool_int("DISABLE_SP", 0)
 print(f'vae: cpu_offload={CPU_OFFLOAD}, DISABLE_SP={DISABLE_SP}')
 
 
