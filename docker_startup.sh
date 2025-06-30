@@ -200,12 +200,15 @@ else
     python3 -m hymm_sp.low_memory_inference \
         --ckpt /workspace/weights \
         --input "$INPUT_FILE" \
-        --save_path /workspace/outputs \
-        --cpu_offload \
-        --mixed_precision \
-        --infer_min \
-        --batch_size 1 \
-        --image_size "$IMAGE_SIZE" \
+        --save-path /workspace/outputs \
+        --cpu-offload \
+        --infer-min \
+        --image-size "$IMAGE_SIZE" \
+        --sample-n-frames 129 \
+        --seed 128 \
+        --cfg-scale 7.5 \
+        --infer-steps 50 \
+        --use-fp8 \
         2>&1 | tee /workspace/logs/inference_$(date +%Y%m%d_%H%M%S).log
     
     print_status "Inference completed! Check /workspace/outputs for results"
