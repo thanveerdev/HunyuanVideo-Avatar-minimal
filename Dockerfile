@@ -51,13 +51,13 @@ WORKDIR /workspace
 COPY requirements-minimal.txt requirements.txt ./
 
 # Install Python dependencies with optimized flash_attn installation
-RUN pip3 install --no-cache-dir --upgrade pip && \
-    pip3 install --no-cache-dir torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu124 && \
-    pip3 install --no-cache-dir packaging ninja && \
-    (pip3 install --no-cache-dir flash-attn==2.6.3 --find-links https://flash-attention.s3.amazonaws.com/releases/ || \
-     TORCH_CUDA_ARCH_LIST="8.0" MAX_JOBS=4 NVCC_THREADS=4 pip3 install --no-cache-dir flash-attn==2.6.3 --no-build-isolation --timeout 7200) && \
-    pip3 install --no-cache-dir -r requirements.txt && \
-    pip3 install --no-cache-dir huggingface-hub[cli]
+RUN pip3 install --no-cache-dir --upgrade pip --verbose && \
+    pip3 install --no-cache-dir torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu124 --verbose && \
+    pip3 install --no-cache-dir packaging ninja --verbose && \
+    (pip3 install --no-cache-dir flash-attn==2.6.3 --find-links https://flash-attention.s3.amazonaws.com/releases/ --verbose || \
+     TORCH_CUDA_ARCH_LIST="8.0" MAX_JOBS=2 NVCC_THREADS=2 pip3 install --no-cache-dir flash-attn==2.6.3 --no-build-isolation --timeout 7200 --verbose) && \
+    pip3 install --no-cache-dir -r requirements.txt --verbose && \
+    pip3 install --no-cache-dir huggingface-hub[cli] --verbose
 
 # Copy application code
 COPY hymm_sp/ ./hymm_sp/
