@@ -75,9 +75,10 @@ RUN pip3 install --no-cache-dir \
 
 # Install web interface dependencies (fixing the errors from our tests)
 RUN pip3 install --no-cache-dir \
-    gradio==4.42.0 \
-    fastapi==0.115.12 \
-    uvicorn==0.34.2
+    gradio==3.39.0 \
+    fastapi==0.104.1 \
+    uvicorn==0.24.0 \
+    pydantic==2.4.2
 
 # Install utility dependencies
 RUN pip3 install --no-cache-dir \

@@ -1,13 +1,11 @@
-# HunyuanVideo-Avatar Docker Container for RunPod
-# Optimized for single GPU deployment with model weights downloaded on first run
-# Uses PRECOMPILED Flash Attention wheels for fast, reliable builds
+# HunyuanVideo-Avatar Docker Container WITHOUT Flash Attention
+# Fallback option for environments where flash-attn compilation fails
 
-# Use GPU-optimized version that runs on 10GB VRAM instead of 80GB
 FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    python3 python3-pip git wget curl \
+    python3 python3-pip python3-dev git wget curl \
     ffmpeg libsm6 libxext6 libxrender-dev \
     libgl1-mesa-glx libglib2.0-0 libgomp1 \
     && rm -rf /var/lib/apt/lists/* \
@@ -20,34 +18,49 @@ ENV CUDA_HOME=/usr/local/cuda
 ENV PATH=${CUDA_HOME}/bin:${PATH}
 ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
 
-# Upgrade pip and install packaging tools
+# Disable flash attention to avoid import errors
+ENV DISABLE_FLASH_ATTN=1
+ENV USE_FALLBACK_ATTENTION=1
+
+# Upgrade pip and install core tools
 RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel packaging
 
 # Install PyTorch with CUDA 12.4 support
 RUN pip3 install --no-cache-dir torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu124
 
-# Install precompiled Flash Attention wheel - FAST & RELIABLE
-# Using --only-binary to ensure we get precompiled wheels, not source compilation
-RUN pip3 install --no-cache-dir --only-binary=flash-attn flash-attn==2.5.8 || \
-    pip3 install --no-cache-dir --only-binary=flash-attn flash-attn==2.5.7 || \
-    pip3 install --no-cache-dir --only-binary=flash-attn flash-attn==2.5.6 || \
-    pip3 install --no-cache-dir --only-binary=flash-attn flash-attn==2.4.2 || \
-    echo "⚠️ No precompiled flash-attn wheel found, trying manual install..." && \
-    pip3 install --no-cache-dir flash-attn --no-build-isolation
+# Install core dependencies WITHOUT flash attention
+RUN pip3 install --no-cache-dir \
+    diffusers==0.33.0 \
+    transformers==4.41.2 \
+    accelerate==1.1.1 \
+    opencv-python==4.9.0.80 \
+    pillow>=9.5.0 \
+    imageio==2.34.0 \
+    imageio-ffmpeg==0.5.1 \
+    librosa==0.11.0 \
+    soundfile>=0.12.0 \
+    numpy==1.24.4 \
+    scipy>=1.10.0 \
+    einops==0.7.0 \
+    omegaconf>=2.3.0 \
+    loguru==0.7.2 \
+    tqdm==4.66.2 \
+    safetensors==0.4.3 \
+    psutil>=5.9.0 \
+    huggingface-hub[cli]
 
-# Verify Flash Attention installation
-RUN python3 -c "import flash_attn; print(f'✅ Flash Attention {flash_attn.__version__} installed successfully!')"
+# Install web interface with compatible versions
+RUN pip3 install --no-cache-dir \
+    gradio==3.39.0 \
+    fastapi==0.104.1 \
+    uvicorn==0.24.0 \
+    pydantic==2.4.2
+
+# Install memory optimization package
+RUN pip3 install --no-cache-dir mmgp==3.4.9
 
 # Set working directory
 WORKDIR /workspace
-
-# Copy requirements first (for better Docker layer caching)
-COPY requirements-minimal.txt requirements.txt ./
-
-# Install project-specific dependencies
-RUN pip3 install --no-cache-dir --upgrade pip && \
-    pip3 install --no-cache-dir -r requirements.txt && \
-    pip3 install --no-cache-dir huggingface-hub[cli]
 
 # Copy application code
 COPY hymm_sp/ ./hymm_sp/
@@ -57,18 +70,13 @@ COPY config_minimal.py ./
 COPY *.sh ./
 COPY README.md LICENSE ./
 
-# Copy TorchVision compatibility fix files (essential only)
+# Copy TorchVision compatibility fix files
 COPY apply_torchvision_fix.py ./
 COPY fix_torchvision_compatibility.py ./
 COPY fix_transformers_torchvision.py ./
 COPY fix_deep_torchvision_import.py ./
 COPY setup_auto_torchvision_fix.sh ./
-
-# Copy NEW comprehensive TorchVision circular import fix files
 COPY start_fastapi_with_fix.py ./
-COPY test_torchvision_circular_import_fix.py ./
-COPY TORCHVISION_CIRCULAR_IMPORT_FIX.md ./
-COPY PROBLEM_ANALYSIS_AND_SOLUTION.md ./
 
 # Create necessary directories
 RUN mkdir -p /workspace/weights /workspace/outputs /workspace/logs /workspace/inputs
@@ -91,8 +99,12 @@ ENV CUDA_CACHE_DISABLE=1
 ENV RUNPOD_POD_ID=${RUNPOD_POD_ID:-""}
 ENV RUNPOD_PUBLIC_IP=${RUNPOD_PUBLIC_IP:-""}
 
-# Final verification of critical components
-RUN python3 -c "import torch; import flash_attn; print(f'🚀 Ready! PyTorch: {torch.__version__}, Flash Attention: {flash_attn.__version__}, CUDA: {torch.cuda.is_available()}')"
+# Warning about reduced performance without flash attention
+RUN echo "⚠️  WARNING: Running without Flash Attention - performance will be reduced" && \
+    echo "   Consider using Dockerfile.flash-attn or Dockerfile.precompiled for better performance"
+
+# Final verification (without flash-attn)
+RUN python3 -c "import torch; print(f'🚀 Ready! PyTorch: {torch.__version__}, CUDA: {torch.cuda.is_available()}')"
 
 # Expose ports for web interface
 EXPOSE 7860 8000 80

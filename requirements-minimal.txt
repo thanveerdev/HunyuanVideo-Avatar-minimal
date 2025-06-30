@@ -2,42 +2,54 @@
 # Optimized for single GPU setup with memory constraints
 
 # Core ML Framework - Fixed compatible versions
-torch==2.1.0
-torchvision==0.16.0
-torchaudio==2.1.0
+torch==2.4.0
+torchvision==0.19.0
+torchaudio==2.4.0
 
 # Diffusion and Generation
-diffusers>=0.20.0
-transformers>=4.30.0
-accelerate>=0.20.0
+diffusers==0.33.0
+transformers==4.41.2
+accelerate==1.1.1
 
-# Critical Dependencies
-flash_attn>=2.3.0  # Required for efficient attention mechanisms
+# Critical Dependencies - Flash Attention (PRECOMPILED)
+flash-attn==2.5.8
 
 # Computer Vision
-opencv-python>=4.7.0
+opencv-python==4.9.0.80
 pillow>=9.5.0
-imageio>=2.31.0
-imageio-ffmpeg>=0.4.8
+imageio==2.34.0
+imageio-ffmpeg==0.5.1
 
 # Audio Processing  
-librosa>=0.10.0
+librosa==0.11.0
 soundfile>=0.12.0
-whisper
+
+# Web Interface - Compatible versions
+gradio==3.39.0
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.4.2
 
 # Utilities
-numpy>=1.24.0
+numpy==1.24.4
 scipy>=1.10.0
-einops>=0.6.0
+einops==0.7.0
 omegaconf>=2.3.0
-loguru>=0.7.0
-
-# Face Processing (minimal)
-# mediapipe>=0.10.0  # Optional, only if face detection needed
+loguru==0.7.2
+tqdm==4.66.2
+safetensors==0.4.3
 
 # Memory Optimization
 psutil>=5.9.0  # For memory monitoring
 mmgp==3.4.9  # Memory Management for GPU Poor - VRAM optimization
+
+# Build tools
+wheel>=0.38.0
+packaging>=21.0
+huggingface-hub[cli]
+
+# Face Processing (minimal)
+# mediapipe>=0.10.0  # Optional, only if face detection needed
 
 # File I/O
 pathlib2>=2.3.0; python_version<"3.4" 

@@ -1,17 +1,21 @@
 #!/bin/bash
 
-# HunyuanVideo-Avatar Docker Build Script
-# Easy deployment script for building and pushing to registry
+# HunyuanVideo-Avatar Docker Build Script - Main Dockerfile with Precompiled Flash Attention
+# FAST & RELIABLE BUILD - Uses precompiled wheels instead of compilation
 
 set -e
 
-# Configuration
-IMAGE_NAME="hunyuan-avatar"
-TAG="latest"
-REGISTRY=""  # Set your registry here (e.g., "your-dockerhub-username" or "your-registry.com")
+echo "🚀 Building HunyuanVideo-Avatar Docker image (Precompiled Flash Attention)"
+echo "========================================================================="
+echo "Base image: nvidia/cuda:12.4.1-devel-ubuntu22.04"
+echo "Flash Attention: Precompiled wheels (FAST & RELIABLE)"
+echo "Build time: ~5-10 minutes (much faster than compilation!)"
+echo "========================================================================="
 
-# VPS Build Configuration - Set your Docker Hub username here
-DOCKER_HUB_USERNAME=""  # Set this to your Docker Hub username for easy deployment
+# Configuration
+IMAGE_NAME="hunyuan-video-avatar"
+IMAGE_TAG="latest"
+DOCKERFILE="Dockerfile"
 
 # Colors for output
 RED='\033[0;31m'
@@ -36,105 +40,75 @@ print_info() {
     echo -e "${BLUE}ℹ️  $1${NC}"
 }
 
-echo "🐳 HunyuanVideo-Avatar Docker Build Script"
-echo "=========================================="
-
-# Check if Docker is running
-if ! docker info >/dev/null 2>&1; then
-    print_error "Docker is not running. Please start Docker first."
+# Check if Docker is available
+if ! command -v docker &> /dev/null; then
+    print_error "Docker is not installed or not in PATH"
     exit 1
 fi
 
 print_status "Docker is running"
 
 # Check if we're in the right directory
-if [ ! -f "Dockerfile" ]; then
-    print_error "Dockerfile not found. Make sure you're in the project directory."
+if [ ! -f "$DOCKERFILE" ]; then
+    print_error "$DOCKERFILE not found. Make sure you're in the project directory."
     exit 1
 fi
 
-print_status "Dockerfile found"
+print_status "$DOCKERFILE found"
+
+print_info "Building Docker image with precompiled flash attention..."
+echo "Image: ${IMAGE_NAME}:${IMAGE_TAG}"
+echo "Dockerfile: ${DOCKERFILE}"
+
+# Start timing
+start_time=$(date +%s)
 
 # Build the image
-print_info "Building Docker image..."
-echo "Image: ${IMAGE_NAME}:${TAG}"
-
-if docker build -t "${IMAGE_NAME}:${TAG}" .; then
-    print_status "Docker image built successfully!"
+if docker build -f "$DOCKERFILE" -t "${IMAGE_NAME}:${IMAGE_TAG}" .; then
+    end_time=$(date +%s)
+    build_time=$((end_time - start_time))
+    print_status "Docker image built successfully in ${build_time} seconds!"
 else
     print_error "Docker build failed!"
     exit 1
 fi
 
 # Show image size
-IMAGE_SIZE=$(docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep "${IMAGE_NAME}" | grep "${TAG}" | awk '{print $3}')
+IMAGE_SIZE=$(docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep "${IMAGE_NAME}" | grep "${IMAGE_TAG}" | awk '{print $3}')
 print_info "Image size: ${IMAGE_SIZE}"
 
-# Ask if user wants to test the image
-echo ""
-read -p "🧪 Do you want to test the image locally? (y/n): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    print_info "Testing image locally..."
-    print_warning "This will download ~10GB of models on first run"
-    print_info "Press Ctrl+C to stop the container"
-    
-    # Create test directories
-    mkdir -p ./test_outputs ./test_logs ./test_inputs
-    
-    docker run --rm -it \
-        --gpus all \
-        -e NVIDIA_VISIBLE_DEVICES=0 \
-        -v ./test_outputs:/workspace/outputs \
-        -v ./test_logs:/workspace/logs \
-        -v ./test_inputs:/workspace/inputs \
-        "${IMAGE_NAME}:${TAG}"
-fi
-
-# Ask if user wants to push to registry
-if [ ! -z "$REGISTRY" ]; then
-    echo ""
-    read -p "📤 Do you want to push to registry? (y/n): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        FULL_IMAGE_NAME="${REGISTRY}/${IMAGE_NAME}:${TAG}"
-        
-        print_info "Tagging image for registry..."
-        docker tag "${IMAGE_NAME}:${TAG}" "${FULL_IMAGE_NAME}"
-        
-        print_info "Pushing to registry: ${FULL_IMAGE_NAME}"
-        if docker push "${FULL_IMAGE_NAME}"; then
-            print_status "Image pushed successfully!"
-            print_info "Registry image: ${FULL_IMAGE_NAME}"
-        else
-            print_error "Failed to push image"
-            exit 1
-        fi
-    fi
+# Test flash attention in the image
+print_info "Testing flash attention in built image..."
+if docker run --rm "${IMAGE_NAME}:${IMAGE_TAG}" python3 -c "import flash_attn; print('✅ Flash Attention works!')"; then
+    print_status "Flash Attention verification passed!"
 else
-    print_warning "No registry configured. Set REGISTRY variable in this script to push images."
+    print_warning "Flash Attention test failed, but image was built"
+fi
+
+# Test basic functionality
+print_info "Testing basic PyTorch functionality..."
+if docker run --rm "${IMAGE_NAME}:${IMAGE_TAG}" python3 -c "import torch; print(f'✅ PyTorch {torch.__version__} works!')"; then
+    print_status "PyTorch verification passed!"
 fi
 
 echo ""
-print_status "Build complete!"
-print_info "Local image: ${IMAGE_NAME}:${TAG}"
-
-if [ ! -z "$REGISTRY" ]; then
-    print_info "Registry image: ${REGISTRY}/${IMAGE_NAME}:${TAG}"
-fi
+print_status "🎉 Build Complete!"
+print_info "Local image: ${IMAGE_NAME}:${IMAGE_TAG}"
 
 echo ""
-echo "🚀 Next Steps:"
-echo "1. Push image to your registry (Docker Hub, etc.)"
-echo "2. Update runpod_template.json with your registry URL"
-echo "3. Deploy on RunPod using the template"
+echo "🚀 PRECOMPILED BUILD ADVANTAGES:"
+echo "- Uses precompiled flash attention wheels"
+echo "- Fast build time (5-10 minutes vs 20-30 minutes)"
+echo "- Very reliable - no compilation failures"
+echo "- Good performance with Flash Attention"
 echo ""
-echo "🌐 Web Interface Usage:"
-echo "- Set RUN_MODE=web to enable Gradio interface"
-echo "- Access at: http://localhost:7860 (local) or pod URL (RunPod)"
-echo "- See README_WEB_INTERFACE.md for detailed instructions"
+echo "💻 Next Steps:"
+echo "1. Test locally:"
+echo "   docker run --rm --gpus all -p 7860:7860 -p 8000:8000 ${IMAGE_NAME}:${IMAGE_TAG}"
 echo ""
-echo "📖 See README_DOCKER.md for detailed deployment instructions"
+echo "2. Push to registry (optional):"
+echo "   docker tag ${IMAGE_NAME}:${IMAGE_TAG} your-registry/${IMAGE_NAME}:${IMAGE_TAG}"
+echo "   docker push your-registry/${IMAGE_NAME}:${IMAGE_TAG}"
 
 # VPS Deployment Instructions
 echo ""
