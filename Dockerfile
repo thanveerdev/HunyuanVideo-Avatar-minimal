@@ -67,11 +67,8 @@ COPY fix_transformers_torchvision.py ./
 COPY fix_deep_torchvision_import.py ./
 COPY setup_auto_torchvision_fix.sh ./
 
-# Copy NEW comprehensive TorchVision circular import fix files
+# Copy FastAPI startup fix (essential for web interface)
 COPY start_fastapi_with_fix.py ./
-COPY test_torchvision_circular_import_fix.py ./
-COPY TORCHVISION_CIRCULAR_IMPORT_FIX.md ./
-COPY PROBLEM_ANALYSIS_AND_SOLUTION.md ./
 
 # Create necessary directories
 RUN mkdir -p /workspace/weights /workspace/outputs /workspace/logs /workspace/inputs
