@@ -83,25 +83,25 @@ install_deps() {
 # Function to run unit tests
 run_unit_tests() {
     print_status "Running unit tests..."
-    python -m pytest tests/unit/ -v --cov=hymm_sp --cov-report=html:htmlcov --cov-report=term-missing --tb=short
+    python3 -m pytest tests/unit/ -v --cov=hymm_sp --cov-report=html:htmlcov --cov-report=term-missing --tb=short
 }
 
 # Function to run integration tests
 run_integration_tests() {
     print_status "Running integration tests..."
-    python -m pytest tests/integration/ -v --tb=short -m "not slow"
+    python3 -m pytest tests/integration/ -v --tb=short -m "not slow"
 }
 
 # Function to run performance tests
 run_performance_tests() {
     print_status "Running performance tests..."
-    python -m pytest tests/performance/ -v --tb=short -m "not gpu"
+    python3 -m pytest tests/performance/ -v --tb=short -m "not gpu"
 }
 
 # Function to run system tests
 run_system_tests() {
     print_status "Running system tests..."
-    python -m pytest tests/system/ -v --tb=short -m "not docker and not gpu"
+    python3 -m pytest tests/system/ -v --tb=short -m "not docker and not gpu"
 }
 
 # Function to run all tests
@@ -128,7 +128,7 @@ run_all_tests() {
 # Function to run quick tests (unit only)
 run_quick_tests() {
     print_status "Running quick test suite (unit tests only)..."
-    python -m pytest tests/unit/ -v --tb=short
+    python3 -m pytest tests/unit/ -v --tb=short
 }
 
 # Function to run linting

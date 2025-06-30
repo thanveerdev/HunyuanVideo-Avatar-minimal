@@ -236,7 +236,7 @@ print_info "  FastAPI Port: $FASTAPI_PORT"
 # Start FastAPI backend
 print_status "Starting FastAPI backend server..."
 cd hymm_gradio
-python -m uvicorn fastapi_server:app --host 0.0.0.0 --port $FASTAPI_PORT --log-level warning &
+python3 -m uvicorn fastapi_server:app --host 0.0.0.0 --port $FASTAPI_PORT --log-level warning &
 FASTAPI_PID=$!
 cd ..
 
@@ -268,7 +268,7 @@ if [ "$VRAM_MODE" = "ultra_minimal" ] || [ "$VRAM_MODE" = "ultra_low" ]; then
 fi
 
 # Start Gradio with memory monitoring
-python -c "
+python3 -c "
 import os
 import sys
 sys.path.append('hymm_gradio')

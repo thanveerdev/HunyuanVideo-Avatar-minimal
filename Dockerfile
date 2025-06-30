@@ -9,7 +9,8 @@ RUN apt-get update && apt-get install -y \
     python3 python3-pip git wget curl \
     ffmpeg libsm6 libxext6 libxrender-dev \
     libgl1-mesa-glx libglib2.0-0 libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s /usr/bin/python3 /usr/bin/python
 
 # Install Python dependencies
 RUN pip3 install --no-cache-dir --upgrade pip && \

@@ -55,7 +55,7 @@ echo "   - Minimal inference: Enabled"
 echo ""
 
 # Run the minimal inference
-python -m hymm_sp.low_memory_inference \
+python3 -m hymm_sp.low_memory_inference \
     --ckpt ./weights \
     --input ./test_input.csv \
     --save_path ./outputs \
