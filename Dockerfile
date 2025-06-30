@@ -4,6 +4,17 @@
 # Use official HunyuanVideo Docker image with CUDA 12.4 (has all dependencies pre-installed)
 FROM hunyuanvideo/hunyuanvideo:cuda_12
 
+# Install missing OpenGL and graphics libraries for OpenCV
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
