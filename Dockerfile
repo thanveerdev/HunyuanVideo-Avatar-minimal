@@ -2,8 +2,8 @@
 # Optimized for single GPU deployment with model weights downloaded on first run
 # Uses PRECOMPILED Flash Attention wheels for fast, reliable builds
 
-# Use GPU-optimized version that runs on 10GB VRAM instead of 80GB
-FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
+# Use GPU-optimized version with cuDNN for better deep learning compatibility
+FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
