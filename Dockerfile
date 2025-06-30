@@ -59,6 +59,7 @@ COPY README.md LICENSE ./
 # Copy TorchVision compatibility fix files (essential only)
 COPY apply_torchvision_fix.py ./
 COPY fix_torchvision_compatibility.py ./
+COPY fix_transformers_torchvision.py ./
 COPY setup_auto_torchvision_fix.sh ./
 
 # Create necessary directories

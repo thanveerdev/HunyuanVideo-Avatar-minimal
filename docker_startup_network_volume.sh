@@ -112,12 +112,21 @@ else
 fi
 
 # Apply TorchVision compatibility fix automatically
-echo "🔧 Applying TorchVision compatibility fix..."
+echo "🔧 Applying comprehensive TorchVision compatibility fix..."
 cd /workspace
-if python3 apply_torchvision_fix.py; then
-    echo "✅ TorchVision compatibility fix applied successfully"
+
+# Run pre-import fix to prevent transformers circular import
+if python3 fix_transformers_torchvision.py; then
+    echo "✅ Transformers-TorchVision compatibility fix applied successfully"
 else
-    echo "⚠️  TorchVision fix had issues, but continuing with fallback mode"
+    echo "⚠️  Transformers fix had issues, but continuing with fallback mode"
+fi
+
+# Also run the original fix for additional safety
+if python3 apply_torchvision_fix.py; then
+    echo "✅ Additional TorchVision environment fix applied"
+else
+    echo "⚠️  Additional TorchVision fix had issues, but continuing"
 fi
 
 # Fix Python path for imports

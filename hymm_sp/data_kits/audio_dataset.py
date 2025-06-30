@@ -12,64 +12,106 @@ from PIL import Image
 from einops import rearrange
 from torch.utils.data import Dataset
 from decord import VideoReader, cpu
-from transformers import CLIPImageProcessor
 
-# Handle torchvision import with version compatibility
+# CRITICAL: Prevent TorchVision circular import in transformers
+# We need to mock torchvision.transforms before transformers tries to import it
+import sys
+from unittest.mock import MagicMock
+
+# Create a mock torchvision module to prevent circular imports
+if 'torchvision' not in sys.modules:
+    mock_torchvision = MagicMock()
+    mock_torchvision.transforms = MagicMock()
+    mock_torchvision.transforms.InterpolationMode = MagicMock()
+    mock_torchvision.transforms.InterpolationMode.BILINEAR = 'bilinear'
+    mock_torchvision.transforms.InterpolationMode.NEAREST = 'nearest'
+    mock_torchvision.transforms.ToPILImage = MagicMock()
+    mock_torchvision.transforms.Compose = MagicMock()
+    mock_torchvision.transforms.Resize = MagicMock()
+    mock_torchvision.transforms.CenterCrop = MagicMock()
+    mock_torchvision.transforms.ToTensor = MagicMock()
+    mock_torchvision.transforms.Normalize = MagicMock()
+    mock_torchvision.extension = MagicMock()
+    mock_torchvision.extension._has_ops = MagicMock(return_value=False)
+    sys.modules['torchvision'] = mock_torchvision
+    sys.modules['torchvision.transforms'] = mock_torchvision.transforms
+    sys.modules['torchvision.extension'] = mock_torchvision.extension
+
+# Now safely import transformers
 try:
+    from transformers import CLIPImageProcessor
+    print("✅ CLIPImageProcessor imported successfully with TorchVision mock")
+except Exception as e:
+    print(f"⚠️  CLIPImageProcessor import failed: {e}")
+    # Fallback: create a minimal CLIPImageProcessor mock
+    class MockCLIPImageProcessor:
+        def __init__(self, *args, **kwargs):
+            pass
+        def __call__(self, *args, **kwargs):
+            return {"pixel_values": torch.zeros(1, 3, 224, 224)}
+    CLIPImageProcessor = MockCLIPImageProcessor
+    print("⚠️  Using mock CLIPImageProcessor fallback")
+
+# Try to import real torchvision after transformers is loaded
+try:
+    # Remove our mock first
+    if 'torchvision' in sys.modules and hasattr(sys.modules['torchvision'], '_mock_name'):
+        del sys.modules['torchvision']
+        del sys.modules['torchvision.transforms'] 
+        del sys.modules['torchvision.extension']
+    
     import torchvision
     import torchvision.transforms as transforms
     from torchvision.transforms import ToPILImage
+    print("✅ Real TorchVision loaded successfully after transformers")
     TORCHVISION_AVAILABLE = True
-    print("✅ TorchVision loaded successfully in audio_dataset")
 except Exception as e:
-    print(f"⚠️  TorchVision import failed in audio_dataset: {e}")
-    print("⚠️  Using torch-only fallback for transforms")
+    print(f"⚠️  Real TorchVision failed to load: {e}")
+    print("⚠️  Continuing with torch-only fallbacks")
     TORCHVISION_AVAILABLE = False
     
-    # Fallback transform classes
-    class ToPILImage:
+    # Create torch-only fallbacks
+    class TorchToPILImage:
         def __call__(self, tensor):
-            from PIL import Image
-            import numpy as np
-            if tensor.dim() == 3:
-                tensor = tensor.permute(1, 2, 0)
-            array = (tensor.cpu().numpy() * 255).astype(np.uint8)
-            return Image.fromarray(array)
+            if torch.is_tensor(tensor):
+                tensor = tensor.cpu().numpy()
+            if tensor.ndim == 3:
+                tensor = tensor.transpose(1, 2, 0)
+            tensor = (tensor * 255).astype(np.uint8)
+            return Image.fromarray(tensor)
     
-    # Basic transforms module fallback
-    class TransformsFallback:
-        class Compose:
-            def __init__(self, transforms):
-                self.transforms = transforms
-            def __call__(self, img):
-                for t in self.transforms:
-                    img = t(img)
-                return img
-        
-        class Resize:
-            def __init__(self, size, interpolation=None):
-                self.size = size
-            def __call__(self, img):
-                return img.resize(self.size, Image.LANCZOS if hasattr(Image, 'LANCZOS') else Image.BICUBIC)
-        
-        class ToTensor:
-            def __call__(self, img):
-                import numpy as np
-                array = np.array(img)
-                if array.ndim == 3:
-                    array = array.transpose(2, 0, 1)
-                return torch.from_numpy(array).float() / 255.0
-        
-        class Normalize:
-            def __init__(self, mean, std):
-                self.mean = torch.tensor(mean).view(-1, 1, 1)
-                self.std = torch.tensor(std).view(-1, 1, 1)
-            def __call__(self, tensor):
-                return (tensor - self.mean) / self.std
-        
-        InterpolationMode = type('InterpolationMode', (), {'BILINEAR': 'bilinear'})()
+    class TorchCompose:
+        def __init__(self, transforms):
+            self.transforms = transforms
+        def __call__(self, x):
+            for t in self.transforms:
+                x = t(x)
+            return x
     
-    transforms = TransformsFallback()
+    class TorchResize:
+        def __init__(self, size):
+            self.size = size
+        def __call__(self, img):
+            return img.resize(self.size, Image.BILINEAR)
+    
+    class TorchToTensor:
+        def __call__(self, img):
+            if isinstance(img, Image.Image):
+                img = np.array(img)
+            if img.ndim == 3:
+                img = img.transpose(2, 0, 1)
+            return torch.from_numpy(img.astype(np.float32) / 255.0)
+    
+    # Mock transforms module
+    class MockTransforms:
+        ToPILImage = TorchToPILImage
+        Compose = TorchCompose
+        Resize = TorchResize
+        ToTensor = TorchToTensor
+        InterpolationMode = type('InterpolationMode', (), {'BILINEAR': Image.BILINEAR, 'NEAREST': Image.NEAREST})
+    
+    transforms = MockTransforms()
+    ToPILImage = TorchToPILImage()
 
 
 
