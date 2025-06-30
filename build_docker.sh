@@ -10,6 +10,9 @@ IMAGE_NAME="hunyuan-avatar"
 TAG="latest"
 REGISTRY=""  # Set your registry here (e.g., "your-dockerhub-username" or "your-registry.com")
 
+# VPS Build Configuration - Set your Docker Hub username here
+DOCKER_HUB_USERNAME=""  # Set this to your Docker Hub username for easy deployment
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -131,4 +134,22 @@ echo "- Set RUN_MODE=web to enable Gradio interface"
 echo "- Access at: http://localhost:7860 (local) or pod URL (RunPod)"
 echo "- See README_WEB_INTERFACE.md for detailed instructions"
 echo ""
-echo "📖 See README_DOCKER.md for detailed deployment instructions" 
+echo "📖 See README_DOCKER.md for detailed deployment instructions"
+
+# VPS Deployment Instructions
+echo ""
+echo "💻 VPS Deployment Commands:"
+echo "=========================="
+echo "1. Clone repository:"
+echo "   git clone -b wan2gp https://github.com/thanveerdev/HunyuanVideo-Avatar-minimal.git"
+echo "   cd HunyuanVideo-Avatar-minimal"
+echo ""
+echo "2. Build Docker image:"
+echo "   docker build -t hunyuan-avatar:latest ."
+echo ""
+echo "3. Push to Docker Hub (replace YOUR_USERNAME):"
+echo "   docker tag hunyuan-avatar:latest YOUR_USERNAME/hunyuan-avatar:latest"
+echo "   docker push YOUR_USERNAME/hunyuan-avatar:latest"
+echo ""
+echo "4. Run on VPS:"
+echo "   docker run --gpus all -p 7860:7860 -p 8000:8000 YOUR_USERNAME/hunyuan-avatar:latest" 
