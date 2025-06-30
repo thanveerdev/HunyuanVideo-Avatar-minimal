@@ -23,8 +23,10 @@ scikit-video==1.1.11
 soundfile>=0.12.0
 ffmpeg
 
-# Flash Attention - PRECOMPILED VERSION (fast & reliable)
-flash-attn==2.5.8
+# === FLASH ATTENTION ===
+# Flash Attention is installed directly in Dockerfile with precompiled wheels
+# Removed from requirements.txt to avoid version conflicts and double installation
+# flash-attn>=2.5.8  # Now handled in Dockerfile
 
 # Core PyTorch stack - Compatible versions
 torch==2.4.0

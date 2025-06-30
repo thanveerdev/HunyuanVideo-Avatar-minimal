@@ -11,9 +11,6 @@ diffusers==0.33.0
 transformers==4.41.2
 accelerate==1.1.1
 
-# Critical Dependencies - Flash Attention (PRECOMPILED)
-flash-attn==2.5.8
-
 # Computer Vision
 opencv-python==4.9.0.80
 pillow>=9.5.0

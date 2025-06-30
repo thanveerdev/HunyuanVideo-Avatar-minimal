@@ -26,8 +26,11 @@ RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel packaging
 # Install PyTorch with CUDA 12.4 support
 RUN pip3 install --no-cache-dir torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu124
 
-# Install precompiled Flash Attention wheel - FAST & RELIABLE
-# Using --only-binary to ensure we get precompiled wheels, not source compilation
+# Install packaging and build tools needed for flash attention
+RUN pip3 install --no-cache-dir packaging wheel ninja
+
+# Install precompiled Flash Attention wheel - FORCE wheel installation only
+# Using --only-binary to ensure we get precompiled wheels, not source
 RUN pip3 install --no-cache-dir --only-binary=flash-attn flash-attn==2.5.8 || \
     pip3 install --no-cache-dir --only-binary=flash-attn flash-attn==2.5.7 || \
     pip3 install --no-cache-dir --only-binary=flash-attn flash-attn==2.5.6 || \
