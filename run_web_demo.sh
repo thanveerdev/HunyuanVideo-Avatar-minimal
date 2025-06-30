@@ -242,12 +242,13 @@ else
     print_warning "TorchVision fix had issues, but continuing with fallback mode"
 fi
 
-# Start FastAPI backend
-print_status "Starting FastAPI backend server..."
-cd hymm_gradio
-python3 -m uvicorn fastapi_server:app --host 0.0.0.0 --port $FASTAPI_PORT --log-level warning &
+# Start FastAPI backend with TorchVision fix
+print_status "Starting FastAPI backend server with TorchVision fix..."
+# Export the FastAPI port for the startup script
+export FASTAPI_PORT
+# Use our TorchVision-safe startup script instead of direct uvicorn
+python3 start_fastapi_with_fix.py &
 FASTAPI_PID=$!
-cd ..
 
 # Wait for FastAPI to start
 sleep 3

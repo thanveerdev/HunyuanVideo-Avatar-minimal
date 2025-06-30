@@ -1,5 +1,94 @@
-import os
+#!/usr/bin/env python3
+"""
+FastAPI Server for HunyuanVideo-Avatar
+CRITICAL: Apply TorchVision fix before any other imports to prevent circular import
+"""
+
+# =============================================================================
+# CRITICAL: TorchVision Circular Import Fix
+# This MUST be applied before any imports of transformers, diffusers, or HunyuanVideoSampler
+# =============================================================================
 import sys
+import os
+from unittest.mock import MagicMock
+
+def apply_immediate_torchvision_fix():
+    """Apply TorchVision fix immediately to prevent circular import"""
+    print("🔧 Applying immediate TorchVision circular import fix...")
+    
+    # Set environment variables first
+    os.environ['TORCH_OPERATOR_REGISTRATION_DISABLED'] = '1'
+    os.environ['TORCHVISION_DISABLE_VIDEO_API'] = '1'
+    os.environ['TORCHVISION_DISABLE_CUDA_OPS'] = '1'
+    os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+    
+    # Only create mock if torchvision isn't already properly loaded
+    if 'torchvision' not in sys.modules or not hasattr(sys.modules.get('torchvision', {}), '__version__'):
+        print("   📦 Creating comprehensive TorchVision mock...")
+        
+        # Create the mock torchvision module
+        mock_torchvision = MagicMock()
+        
+        # Mock the problematic extension module
+        mock_extension = MagicMock()
+        mock_extension._has_ops = MagicMock(return_value=False)
+        mock_extension.nms = MagicMock()
+        mock_extension.roi_align = MagicMock()
+        mock_torchvision.extension = mock_extension
+        
+        # Mock transforms submodule with proper InterpolationMode
+        mock_transforms = MagicMock()
+        mock_transforms.InterpolationMode = type('InterpolationMode', (), {
+            'BILINEAR': 2,
+            'NEAREST': 0,
+            'BICUBIC': 3
+        })()
+        mock_transforms.Compose = MagicMock()
+        mock_transforms.Resize = MagicMock()
+        mock_transforms.CenterCrop = MagicMock()
+        mock_transforms.ToTensor = MagicMock()
+        mock_transforms.Normalize = MagicMock()
+        mock_transforms.ToPILImage = MagicMock()
+        mock_torchvision.transforms = mock_transforms
+        
+        # Mock _meta_registrations to prevent the circular import
+        mock_meta = MagicMock()
+        mock_torchvision._meta_registrations = mock_meta
+        
+        # Mock other commonly used modules
+        mock_torchvision.datasets = MagicMock()
+        mock_torchvision.io = MagicMock()
+        mock_torchvision.models = MagicMock()
+        mock_torchvision.ops = MagicMock()
+        mock_torchvision.utils = MagicMock()
+        
+        # Set version and spec to prevent version checks from failing
+        mock_torchvision.__version__ = "0.16.0"
+        mock_torchvision.__spec__ = MagicMock()
+        mock_torchvision.__spec__.name = "torchvision"
+        
+        # Install the mock in sys.modules
+        sys.modules['torchvision'] = mock_torchvision
+        sys.modules['torchvision.extension'] = mock_extension
+        sys.modules['torchvision.transforms'] = mock_transforms
+        sys.modules['torchvision._meta_registrations'] = mock_meta
+        sys.modules['torchvision.ops'] = mock_torchvision.ops
+        sys.modules['torchvision.models'] = mock_torchvision.models
+        sys.modules['torchvision.utils'] = mock_torchvision.utils
+        sys.modules['torchvision.datasets'] = mock_torchvision.datasets
+        sys.modules['torchvision.io'] = mock_torchvision.io
+        
+        print("   ✅ TorchVision mock installed successfully")
+    
+    print("   ✅ Immediate TorchVision fix applied successfully")
+    return True
+
+# Apply the fix immediately
+apply_immediate_torchvision_fix()
+
+# =============================================================================
+# Safe imports after TorchVision fix
+# =============================================================================
 import numpy as np
 import torch
 import warnings
@@ -15,6 +104,7 @@ import torch.distributed as dist
 sys.path.insert(0, '/workspace')
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Now safe to import our modules
 from hymm_gradio.pipeline_utils import *
 from hymm_sp.config import parse_args
 from hymm_sp.audio_video_inference import HunyuanVideoSampler
