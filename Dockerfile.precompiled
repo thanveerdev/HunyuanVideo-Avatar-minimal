@@ -1,0 +1,102 @@
+# HunyuanVideo-Avatar Docker Container with Precompiled Flash Attention
+# Optimized for fast builds using precompiled wheels
+
+FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3 python3-pip git wget curl \
+    ffmpeg libsm6 libxext6 libxrender-dev \
+    libgl1-mesa-glx libglib2.0-0 libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s /usr/bin/python3 /usr/bin/python
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV CUDA_HOME=/usr/local/cuda
+ENV PATH=${CUDA_HOME}/bin:${PATH}
+ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
+
+# Install PyTorch with CUDA 12.4 support (compatible with precompiled flash-attn)
+RUN pip3 install --no-cache-dir --upgrade pip && \
+    pip3 install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu124
+
+# Install precompiled Flash Attention wheel (MUCH FASTER!)
+# Using the official precompiled wheel from PyPI - compatible with CUDA 12.4 and PyTorch 2.4
+RUN pip3 install --no-cache-dir flash-attn==2.6.3 --no-build-isolation
+
+# Verify Flash Attention installation
+RUN python3 -c "import flash_attn; print(f'✅ Flash Attention {flash_attn.__version__} installed successfully!')"
+
+# Install other core dependencies
+RUN pip3 install --no-cache-dir \
+    mmgp==3.4.9 \
+    transformers==4.41.0 \
+    diffusers==0.27.2 \
+    accelerate==0.30.0 \
+    librosa==0.10.1 \
+    soundfile==0.12.1 \
+    opencv-python-headless==4.9.0.80 \
+    Pillow==10.3.0 \
+    imageio==2.34.0 \
+    huggingface-hub[cli]==0.23.0 \
+    loguru==0.7.2 \
+    gradio==4.31.0 \
+    fastapi==0.111.0 \
+    uvicorn==0.30.0 \
+    numpy==1.24.4 \
+    scipy==1.13.0 \
+    einops==0.8.0 \
+    omegaconf==2.3.0 \
+    psutil==5.9.8 \
+    safetensors==0.4.3
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy application code
+COPY hymm_sp/ ./hymm_sp/
+COPY hymm_gradio/ ./hymm_gradio/
+COPY assets/ ./assets/
+COPY config_minimal.py ./
+COPY *.sh ./
+COPY README.md LICENSE ./
+
+# Copy TorchVision compatibility fix files
+COPY apply_torchvision_fix.py ./
+COPY fix_torchvision_compatibility.py ./
+COPY fix_transformers_torchvision.py ./
+COPY fix_deep_torchvision_import.py ./
+COPY setup_auto_torchvision_fix.sh ./
+COPY start_fastapi_with_fix.py ./
+
+# Create necessary directories
+RUN mkdir -p /workspace/weights /workspace/outputs /workspace/logs /workspace/inputs
+
+# Copy startup script and make it executable
+COPY docker_startup.sh /workspace/
+RUN chmod +x /workspace/docker_startup.sh
+RUN chmod +x /workspace/*.sh
+
+# Set environment variables for memory optimization
+ENV MODEL_BASE=/workspace
+ENV CUDA_VISIBLE_DEVICES=0
+ENV PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+ENV CUDA_LAUNCH_BLOCKING=1
+ENV OMP_NUM_THREADS=4
+ENV PYTORCH_NO_CUDA_MEMORY_CACHING=1
+ENV CUDA_CACHE_DISABLE=1
+
+# RunPod specific environment
+ENV RUNPOD_POD_ID=${RUNPOD_POD_ID:-""}
+ENV RUNPOD_PUBLIC_IP=${RUNPOD_PUBLIC_IP:-""}
+
+# Final verification
+RUN python3 -c "import torch; import flash_attn; print(f'🚀 Ready! PyTorch: {torch.__version__}, Flash Attention: {flash_attn.__version__}, CUDA: {torch.cuda.is_available()}')"
+
+# Expose ports for web interface
+EXPOSE 7860 8000 80
+
+# Set startup command
+CMD ["/workspace/docker_startup.sh"] 

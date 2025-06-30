@@ -1,0 +1,47 @@
+# Precompiled Requirements - No Compilation Needed!
+# Optimized for fast Docker builds with precompiled wheels
+# Compatible with CUDA 12.4.1 and cuDNN
+
+# Core ML Framework - Compatible with precompiled flash-attn and CUDA 12.4
+torch==2.4.0
+torchvision==0.19.0
+torchaudio==2.4.0
+
+# Flash Attention - PRECOMPILED WHEEL (no compilation!)
+# Compatible with PyTorch 2.4.0 and CUDA 12.4
+flash-attn==2.6.3
+
+# Diffusion and Generation
+diffusers==0.27.2
+transformers==4.41.0
+accelerate==0.30.0
+
+# Computer Vision
+opencv-python-headless==4.9.0.80
+pillow==10.3.0
+imageio==2.34.0
+imageio-ffmpeg==0.5.1
+
+# Audio Processing  
+librosa==0.10.1
+soundfile==0.12.1
+
+# Web Interface
+gradio==4.31.0
+fastapi==0.111.0
+uvicorn==0.30.0
+
+# Utilities
+numpy==1.24.4
+scipy==1.13.0
+einops==0.8.0
+omegaconf==2.3.0
+loguru==0.7.2
+safetensors==0.4.3
+
+# Memory Optimization
+psutil==5.9.8
+mmgp==3.4.9
+
+# HuggingFace
+huggingface-hub[cli]==0.23.0 
