@@ -37,6 +37,7 @@ loguru>=0.7.0
 
 # Memory Optimization
 psutil>=5.9.0  # For memory monitoring
+mmgp==3.4.9  # Memory Management for GPU Poor - VRAM optimization
 
 # File I/O
 pathlib2>=2.3.0; python_version<"3.4" 

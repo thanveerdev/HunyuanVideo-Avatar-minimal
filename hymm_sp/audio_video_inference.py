@@ -10,6 +10,9 @@ from hymm_sp.inference import Inference
 from hymm_sp.diffusion.schedulers import FlowMatchDiscreteScheduler
 from hymm_sp.data_kits.audio_preprocessor import encode_audio, get_facemask
 
+# Import MMGP utilities for tensor chunking and memory management
+from hymm_sp.mmgp_utils import memory_manager
+
 def align_to(value, alignment):
     return int(math.ceil(value / alignment) * alignment)
 
@@ -92,15 +95,39 @@ class HunyuanVideoSampler(Inference):
         audio_prompts = batch["audio_prompts"].to(self.device)
         weight_dtype = audio_prompts.dtype
 
-        audio_prompts = [encode_audio(wav2vec, audio_feat.to(dtype=wav2vec.dtype), fps.item(), num_frames=batch["audio_len"][0]) for audio_feat in audio_prompts]
-        audio_prompts = torch.cat(audio_prompts, dim=0).to(device=self.device, dtype=weight_dtype)
-        if audio_prompts.shape[1] <= 129:
-            audio_prompts = torch.cat([audio_prompts, torch.zeros_like(audio_prompts[:, :1]).repeat(1,129-audio_prompts.shape[1], 1, 1, 1)], dim=1)
-        else:
-            audio_prompts = torch.cat([audio_prompts, torch.zeros_like(audio_prompts[:, :1]).repeat(1, 5, 1, 1, 1)], dim=1)
+        # Process audio with MMGP chunking for memory efficiency
+        memory_manager.monitor_memory("Before audio processing")
         
+        # Use chunked processing for audio encoding if needed
+        if len(audio_prompts) > 4:  # Chunk large audio batches
+            audio_encoded = []
+            for i, audio_feat in enumerate(audio_prompts):
+                encoded = encode_audio(wav2vec, audio_feat.to(dtype=wav2vec.dtype), fps.item(), num_frames=batch["audio_len"][0])
+                audio_encoded.append(encoded)
+                # Cleanup intermediate tensors
+                memory_manager.aggressive_cleanup(audio_feat)
+                if i % 2 == 0:  # Periodic cleanup
+                    memory_manager.monitor_memory(f"Audio chunk {i}")
+            audio_prompts = torch.cat(audio_encoded, dim=0).to(device=self.device, dtype=weight_dtype)
+            memory_manager.aggressive_cleanup(*audio_encoded)
+        else:
+            audio_prompts = [encode_audio(wav2vec, audio_feat.to(dtype=wav2vec.dtype), fps.item(), num_frames=batch["audio_len"][0]) for audio_feat in audio_prompts]
+            audio_prompts = torch.cat(audio_prompts, dim=0).to(device=self.device, dtype=weight_dtype)
+        
+        # Pad audio prompts with memory management
+        if audio_prompts.shape[1] <= 129:
+            padding = torch.zeros_like(audio_prompts[:, :1]).repeat(1,129-audio_prompts.shape[1], 1, 1, 1)
+            audio_prompts = torch.cat([audio_prompts, padding], dim=1)
+            memory_manager.aggressive_cleanup(padding)
+        else:
+            padding = torch.zeros_like(audio_prompts[:, :1]).repeat(1, 5, 1, 1, 1)
+            audio_prompts = torch.cat([audio_prompts, padding], dim=1)
+            memory_manager.aggressive_cleanup(padding)
+        
+        # Offload wav2vec and cleanup
         wav2vec.to("cpu")
-        torch.cuda.empty_cache()
+        memory_manager.aggressive_cleanup()
+        memory_manager.monitor_memory("After audio processing")
 
         uncond_audio_prompts = torch.zeros_like(audio_prompts[:,:129])
         motion_exp = batch["motion_bucket_id_exps"].to(self.device)
@@ -121,7 +148,8 @@ class HunyuanVideoSampler(Inference):
         pixel_value_llava = rearrange(pixel_value_llava, "b f c h w -> (b f) c h w")
         uncond_pixel_value_llava = pixel_value_llava.clone()
     
-        # ========== Encode reference latents ==========
+        # ========== Encode reference latents with MMGP optimization ==========
+        memory_manager.monitor_memory("Before VAE encoding")
         vae_dtype = self.vae.dtype
         with torch.autocast(device_type="cuda", dtype=vae_dtype, enabled=vae_dtype != torch.float32):
 
@@ -129,9 +157,33 @@ class HunyuanVideoSampler(Inference):
                 self.vae.to('cuda')
 
             self.vae.enable_tiling()
-            ref_latents = self.vae.encode(pixel_value_ref_for_vae.clone()).latent_dist.sample()
-            uncond_ref_latents = self.vae.encode(uncond_uncond_pixel_value_ref).latent_dist.sample()
+            
+            # Use MMGP chunked processing for large tensors
+            if pixel_value_ref_for_vae.numel() > 100_000_000:  # ~100M elements
+                print("🔧 Using MMGP chunked VAE encoding for large tensor")
+                def vae_encode_op(tensor_chunk):
+                    return self.vae.encode(tensor_chunk).latent_dist.sample()
+                
+                ref_latents = memory_manager.chunk_process_tensor(
+                    pixel_value_ref_for_vae.clone(), 
+                    vae_encode_op, 
+                    chunk_size=4
+                )
+                uncond_ref_latents = memory_manager.chunk_process_tensor(
+                    uncond_uncond_pixel_value_ref, 
+                    vae_encode_op, 
+                    chunk_size=4
+                )
+            else:
+                ref_latents = self.vae.encode(pixel_value_ref_for_vae.clone()).latent_dist.sample()
+                uncond_ref_latents = self.vae.encode(uncond_uncond_pixel_value_ref).latent_dist.sample()
+            
             self.vae.disable_tiling()
+            
+            # Cleanup intermediate tensors
+            memory_manager.aggressive_cleanup(pixel_value_ref_for_vae, uncond_uncond_pixel_value_ref)
+            memory_manager.monitor_memory("After VAE encoding")
+            
             if hasattr(self.vae.config, 'shift_factor') and self.vae.config.shift_factor:
                 ref_latents.sub_(self.vae.config.shift_factor).mul_(self.vae.config.scaling_factor)
                 uncond_ref_latents.sub_(self.vae.config.shift_factor).mul_(self.vae.config.scaling_factor)
@@ -141,7 +193,7 @@ class HunyuanVideoSampler(Inference):
             
             if args.cpu_offload:
                 self.vae.to('cpu')
-                torch.cuda.empty_cache()
+                memory_manager.aggressive_cleanup()
                 
         face_masks = torch.nn.functional.interpolate(face_masks.float().squeeze(2), 
                                                 (ref_latents.shape[-2], 

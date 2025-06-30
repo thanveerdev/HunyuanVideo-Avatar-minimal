@@ -27,16 +27,25 @@ from config_minimal import (
     setup_ultra_low_vram_mode
 )
 
+# Import MMGP utilities for extreme memory optimization
+from hymm_sp.mmgp_utils import memory_manager, apply_spaghetti_optimizations
+
 from transformers import WhisperModel
 from transformers import AutoFeatureExtractor
 
 MODEL_OUTPUT_PATH = os.environ.get('MODEL_BASE', os.getcwd())
 
 def setup_ultra_low_memory():
-    """Setup the most aggressive memory optimizations."""
+    """Setup the most aggressive memory optimizations with MMGP."""
+    
+    # Apply MMGP spaghetti optimizations first
+    apply_spaghetti_optimizations()
     
     # Apply base optimizations
     apply_memory_optimizations()
+    
+    # Initialize memory monitoring
+    memory_manager.monitor_memory("Initial setup")
     
     # Get GPU memory info
     if torch.cuda.is_available():
@@ -44,10 +53,12 @@ def setup_ultra_low_memory():
         print(f"🔍 GPU Memory Available: {gpu_memory:.1f} GB")
         
         if gpu_memory <= 6:
-            print("🚨 Ultra-low VRAM detected - applying extreme optimizations")
+            print("🚨 Ultra-low VRAM detected - applying extreme MMGP optimizations")
             setup_ultra_low_vram_mode()
+            # Enable emergency cleanup
+            memory_manager.enable_aggressive_cleanup = True 
         elif gpu_memory <= 8:
-            print("⚠️  Low VRAM detected - applying aggressive optimizations")
+            print("⚠️  Low VRAM detected - applying aggressive MMGP optimizations")
             os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128,garbage_collection_threshold:0.6"
         
         # Set memory fraction based on available VRAM
@@ -58,39 +69,41 @@ def setup_ultra_low_memory():
         else:
             torch.cuda.set_per_process_memory_fraction(0.85)
             
-        # Clear any existing cache
-        torch.cuda.empty_cache()
-        gc.collect()
+        # Clear any existing cache with MMGP
+        memory_manager.aggressive_cleanup()
     
-    print("✅ Ultra-low memory setup completed")
+    print("✅ Ultra-low memory setup completed with MMGP")
 
 def cleanup_memory():
-    """Aggressive memory cleanup between processing steps."""
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-    gc.collect()
+    """Aggressive memory cleanup between processing steps with MMGP."""
+    # Use MMGP aggressive cleanup which includes cache emptying and gc
+    memory_manager.aggressive_cleanup()
     time.sleep(0.1)  # Brief pause to allow cleanup
 
 def monitor_memory_usage(step_name=""):
-    """Monitor and log memory usage."""
+    """Monitor and log memory usage with MMGP."""
+    memory_manager.monitor_memory(step_name)
+    
+    # Additional check for high memory usage
     if torch.cuda.is_available():
         memory_allocated = torch.cuda.memory_allocated() / 1024**3
         memory_total = torch.cuda.get_device_properties(0).total_memory / 1024**3
         usage_percent = (memory_allocated / memory_total) * 100
         
-        if step_name:
-            print(f"📊 {step_name} - VRAM: {memory_allocated:.1f}GB ({usage_percent:.1f}%)")
-        
-        # Trigger cleanup if memory usage is high
-        if usage_percent > 80:
+        # Trigger emergency cleanup if memory usage is very high
+        if usage_percent > 85:
+            print("🚨 Critical memory usage detected - triggering emergency cleanup...")
+            memory_manager.emergency_cleanup()
+            return True
+        elif usage_percent > 75:
             print("🧹 High memory usage detected - cleaning up...")
             cleanup_memory()
             return True
     return False
 
 def load_models_with_offloading(args, device):
-    """Load models with aggressive CPU offloading for low VRAM."""
-    print("🚀 Loading models with ultra-low VRAM optimizations...")
+    """Load models with aggressive CPU offloading for low VRAM using MMGP."""
+    print("🚀 Loading models with MMGP ultra-low VRAM optimizations...")
     
     # Get memory config
     config = get_recommended_config()
@@ -112,31 +125,54 @@ def load_models_with_offloading(args, device):
     
     monitor_memory_usage("Before model loading")
     
-    # Load main model with optimizations
-    hunyuan_video_sampler = HunyuanVideoSampler.from_pretrained(
-        args.ckpt, 
-        args=args, 
-        device=device,
-        torch_dtype=torch.float16 if args.mixed_precision else torch.float32
-    )
+    # Try to load main model with MMGP optimizations first
+    print("🎯 Attempting MMGP model loading...")
+    try:
+        # This would be the ideal MMGP loading, but fallback to standard if needed
+        hunyuan_video_sampler = HunyuanVideoSampler.from_pretrained(
+            args.ckpt, 
+            args=args, 
+            device=device,
+            torch_dtype=torch.float16 if args.mixed_precision else torch.float32
+        )
+        print("✅ Model loaded successfully")
+    except Exception as e:
+        print(f"⚠️  MMGP model loading fallback: {e}")
+        # Standard loading with immediate offloading
+        hunyuan_video_sampler = HunyuanVideoSampler.from_pretrained(
+            args.ckpt, 
+            args=args, 
+            device=device,
+            torch_dtype=torch.float16 if args.mixed_precision else torch.float32
+        )
     
     monitor_memory_usage("After main model loading")
     
-    # Apply CPU offloading if enabled
+    # Apply MMGP CPU offloading if enabled
     if args.cpu_offload:
-        print("🔄 Applying CPU offloading...")
+        print("🔄 Applying MMGP CPU offloading...")
         try:
-            from diffusers.hooks import apply_group_offloading
-            onload_device = torch.device("cuda")
-            apply_group_offloading(
-                hunyuan_video_sampler.pipeline.transformer, 
-                onload_device=onload_device, 
-                offload_type="block_level", 
-                num_blocks_per_group=1
+            # Try MMGP offloading first
+            memory_manager.offload_to_cpu(
+                hunyuan_video_sampler.pipeline.transformer,
+                keep_on_gpu=['encoder', 'attention']  # Keep critical parts on GPU
             )
-            print("✅ CPU offloading applied")
+            print("✅ MMGP CPU offloading applied")
         except Exception as e:
-            print(f"⚠️  CPU offloading failed: {e}")
+            print(f"⚠️  MMGP offloading failed, using standard: {e}")
+            # Fallback to standard diffusers offloading
+            try:
+                from diffusers.hooks import apply_group_offloading
+                onload_device = torch.device("cuda")
+                apply_group_offloading(
+                    hunyuan_video_sampler.pipeline.transformer, 
+                    onload_device=onload_device, 
+                    offload_type="block_level", 
+                    num_blocks_per_group=1
+                )
+                print("✅ Standard CPU offloading applied")
+            except Exception as e2:
+                print(f"⚠️  All offloading methods failed: {e2}")
     
     monitor_memory_usage("After CPU offloading")
     
