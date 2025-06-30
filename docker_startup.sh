@@ -167,8 +167,9 @@ echo "2. Web Interface: bash run_web_demo.sh (Port 7860)"
 echo "3. Custom Input: Modify test_input.csv"
 echo ""
 
-# Determine run mode with enhanced logic
-RUN_MODE=${RUN_MODE:-"persistent"}
+# Determine run mode with enhanced logic  
+# Default to web interface for better user experience
+RUN_MODE=${RUN_MODE:-"web"}
 
 case "$RUN_MODE" in
     "web")
