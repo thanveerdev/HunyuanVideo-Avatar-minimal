@@ -1,13 +1,8 @@
 # HunyuanVideo-Avatar Docker Container for RunPod
 # Optimized for single GPU deployment with model weights downloaded on first run
 
-# Use specific RunPod base image with Python 3.12, CUDA 12.4.1, PyTorch 2.6.0
-FROM ashleykza/runpod-base:2.4.2-python3.12-cuda12.4.1-torch2.6.0
-
-# Alternative for CUDA 11.8 (uncomment to use):
-# FROM nvidia/cuda:11.8-devel-ubuntu22.04
-# RUN apt-get update && apt-get install -y python3 python3-pip python3-dev git ffmpeg && \
-#     pip3 install --no-cache-dir torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu118
+# Use official HunyuanVideo Docker image with CUDA 12.4 (has all dependencies pre-installed)
+FROM hunyuanvideo/hunyuanvideo:cuda_12
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
@@ -22,15 +17,8 @@ ENV FLASH_ATTENTION_FORCE_CUT=TRUE
 ENV NVCC_PREPEND_FLAGS='--keep --keep-dir /tmp'
 ENV TORCH_CUDA_ARCH_LIST="8.0"
 
-# Install essential system packages
-RUN apt-get update && apt-get install -y \
-    git \
-    ffmpeg \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
+# Official image should have all system dependencies
+# RUN apt-get update && apt-get install -y <additional-packages> && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /workspace
@@ -38,11 +26,10 @@ WORKDIR /workspace
 # Copy requirements first (for better Docker layer caching)
 COPY requirements-minimal.txt requirements.txt ./
 
-# Install Python dependencies with alternative flash_attn installation strategy
-RUN pip3 install --no-cache-dir --upgrade pip --verbose && \
-    pip3 install --no-cache-dir flash-attn==2.6.3 --verbose && \
-    pip3 install --no-cache-dir -r requirements.txt --verbose && \
-    pip3 install --no-cache-dir huggingface-hub[cli] --verbose
+# Install project-specific dependencies (most dependencies already in base image)
+RUN pip3 install --no-cache-dir --upgrade pip && \
+    pip3 install --no-cache-dir -r requirements.txt && \
+    pip3 install --no-cache-dir huggingface-hub[cli]
 
 # Copy application code
 COPY hymm_sp/ ./hymm_sp/
