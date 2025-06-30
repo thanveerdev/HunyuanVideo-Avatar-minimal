@@ -96,11 +96,19 @@ def load_models_with_offloading(args, device):
     config = get_recommended_config()
     print(f"🎯 Using preset: {config}")
     
-    # Apply config to args
-    args.image_size = config.get('image_size', 256)
-    args.cpu_offload = config.get('cpu_offload', True)
-    args.mixed_precision = config.get('mixed_precision', True)
-    args.infer_min = config.get('infer_min', True)
+    # Apply config to args, but preserve command line arguments
+    if not hasattr(args, 'image_size') or args.image_size is None:
+        args.image_size = config.get('image_size', 256)
+    # Preserve command line cpu_offload argument
+    if not hasattr(args, 'cpu_offload') or args.cpu_offload is None:
+        args.cpu_offload = config.get('cpu_offload', True)
+    else:
+        # Force CPU offloading if explicitly requested via command line
+        args.cpu_offload = args.cpu_offload or config.get('cpu_offload', True)
+    if not hasattr(args, 'mixed_precision') or args.mixed_precision is None:
+        args.mixed_precision = config.get('mixed_precision', True)
+    if not hasattr(args, 'infer_min') or args.infer_min is None:
+        args.infer_min = config.get('infer_min', True)
     
     monitor_memory_usage("Before model loading")
     

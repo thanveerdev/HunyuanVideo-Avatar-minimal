@@ -81,7 +81,7 @@ QUALITY_PRESETS = {
         "video_length": 64,
         "num_inference_steps": 30,
         "guidance_scale": 7.5,
-        "cpu_offload": False,
+        "cpu_offload": True,  # Force CPU offloading even for high VRAM
         "mixed_precision": True,
         "infer_min": False,
         "max_split_size_mb": 1024,
