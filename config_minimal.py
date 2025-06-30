@@ -4,20 +4,20 @@ Optimized settings for single GPU with memory constraints
 Support for 4GB+ VRAM cards with aggressive optimizations
 """
 
-# Memory Optimization Settings
+# Memory Optimization Settings - Enhanced with HunyuanVideoGP techniques
 MEMORY_CONFIG = {
-    # GPU Memory Management
-    "max_split_size_mb": 256,  # Ultra-aggressive splitting for 4-6GB VRAM
+    # GPU Memory Management - Extreme optimizations
+    "max_split_size_mb": 128,  # More aggressive than standard 256
     "cpu_offload": True,       # Move unused models to CPU
     "mixed_precision": True,   # Use FP16 to save memory
     "gradient_checkpointing": True,  # Trade compute for memory
     
-    # Batch Processing
+    # Batch Processing - Ultra conservative
     "batch_size": 1,           # Process one item at a time
     "max_sequence_length": 77, # Standard CLIP text length
     "num_workers": 1,          # Minimal workers for ultra-low VRAM
     
-    # Sequential Processing
+    # Sequential Processing - All offloading techniques
     "enable_sequential_cpu_offload": True,
     "enable_model_cpu_offload": True,
     "enable_vae_slicing": True,
@@ -25,11 +25,14 @@ MEMORY_CONFIG = {
     "enable_attention_slicing": True,
     "enable_model_offloading": True,
     
-    # Advanced Memory Techniques
+    # Advanced Memory Techniques - HunyuanVideoGP inspired
     "use_8bit_quantization": True,
     "enable_cpu_cache": True,
     "memory_efficient_attention": True,
     "low_mem_conv": True,
+    "aggressive_cleanup": True,  # Enable immediate tensor deletion
+    "chunk_processing": True,    # Process tensors in chunks
+    "tensor_chunking_size": 6,   # Split tensors into 6 chunks like HunyuanVideoGP
 }
 
 # Quality vs Performance Settings - Enhanced for Ultra-Low VRAM

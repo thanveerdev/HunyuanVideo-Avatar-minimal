@@ -1,19 +1,24 @@
 # HunyuanVideo-Avatar Docker Container for RunPod
 # Optimized for single GPU deployment with model weights downloaded on first run
 
-# Use official HunyuanVideo Docker image with CUDA 12.4 (has all dependencies pre-installed)
-FROM hunyuanvideo/hunyuanvideo:cuda_12
+# Use GPU-optimized version that runs on 10GB VRAM instead of 80GB
+FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
 
-# Install missing OpenGL and graphics libraries for OpenCV
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libgomp1 \
-    libglib2.0-0 \
+    python3 python3-pip git wget curl \
+    ffmpeg libsm6 libxext6 libxrender-dev \
+    libgl1-mesa-glx libglib2.0-0 libgomp1 \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip3 install --no-cache-dir --upgrade pip && \
+    pip3 install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu124 && \
+    pip3 install mmgp==3.4.9 && \
+    pip3 install transformers diffusers accelerate && \
+    pip3 install librosa soundfile && \
+    pip3 install opencv-python-headless Pillow imageio && \
+    pip3 install huggingface-hub[cli] loguru
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive

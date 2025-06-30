@@ -43,16 +43,24 @@ fi
 # Set up memory optimization based on GPU memory
 if [ "$GPU_MEMORY" -lt 8192 ]; then
     print_warning "Low GPU memory detected (${GPU_MEMORY}MB). Using ultra-low VRAM mode"
-    export PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:256"
+    export PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:128,garbage_collection_threshold:0.5,expandable_segments:True"
     export IMAGE_SIZE=256
 elif [ "$GPU_MEMORY" -lt 12288 ]; then
     print_status "Medium GPU memory detected (${GPU_MEMORY}MB). Using low VRAM mode"
-    export PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:512"
+    export PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:256,garbage_collection_threshold:0.6,expandable_segments:True"
     export IMAGE_SIZE=384
 else
-    print_status "High GPU memory detected (${GPU_MEMORY}MB). Using balanced mode"
-    export PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:1024"
+    print_status "High GPU memory detected (${GPU_MEMORY}MB). Using extreme optimization mode"
+    # HunyuanVideoGP-inspired extreme optimizations for 24GB GPU
+    export PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:128,garbage_collection_threshold:0.5,expandable_segments:True"
+    export PYTORCH_NO_CUDA_MEMORY_CACHING=1
+    export CUDA_CACHE_DISABLE=1
+    export PYTORCH_JIT=0
+    export OMP_NUM_THREADS=1
+    export MKL_NUM_THREADS=1
+    export CUDA_MODULE_LOADING=LAZY
     export IMAGE_SIZE=512
+    print_status "Applied HunyuanVideoGP-style extreme memory optimizations"
 fi
 
 # Check if models are already downloaded
