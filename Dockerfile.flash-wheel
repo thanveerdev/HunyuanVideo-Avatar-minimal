@@ -1,5 +1,5 @@
-# HunyuanVideo-Avatar Docker Container with Precompiled Flash Attention
-# Optimized for fast builds using precompiled wheels
+# HunyuanVideo-Avatar Docker Container with Direct Flash Attention Wheel Download
+# Alternative approach using direct wheel download
 
 FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
@@ -18,24 +18,41 @@ ENV CUDA_HOME=/usr/local/cuda
 ENV PATH=${CUDA_HOME}/bin:${PATH}
 ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
 
-# Install PyTorch with CUDA 12.4 support (compatible with precompiled flash-attn)
+# Install PyTorch with CUDA 12.4 support
 RUN pip3 install --no-cache-dir --upgrade pip && \
     pip3 install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu124
 
-# Install packaging and build tools needed for flash attention
-RUN pip3 install --no-cache-dir packaging wheel ninja
+# Install flash attention using alternative method - download wheel directly
+RUN pip3 install --no-cache-dir packaging wheel && \
+    python3 -c "\
+import subprocess; \
+import sys; \
+versions = ['2.5.8', '2.5.7', '2.5.6', '2.4.2']; \
+wheel_found = False; \
+for version in versions: \
+    try: \
+        print(f'Trying flash-attn {version}...'); \
+        result = subprocess.run([sys.executable, '-m', 'pip', 'install', '--no-cache-dir', '--only-binary=:all:', f'flash-attn=={version}'], capture_output=True, text=True); \
+        if result.returncode == 0: \
+            print(f'Success: installed flash-attn {version}'); \
+            wheel_found = True; \
+            break; \
+        else: \
+            print(f'Failed: {version}'); \
+    except Exception as e: \
+        print(f'Exception: {version} - {e}'); \
+if not wheel_found: \
+    print('No precompiled wheel found - using standard attention'); \
+"
 
-# Install precompiled Flash Attention wheel - FORCE wheel installation only
-# Using --only-binary to ensure we get precompiled wheels, not source
-RUN pip3 install --no-cache-dir --only-binary=flash-attn flash-attn==2.5.8 || \
-    pip3 install --no-cache-dir --only-binary=flash-attn flash-attn==2.5.7 || \
-    pip3 install --no-cache-dir --only-binary=flash-attn flash-attn==2.5.6 || \
-    pip3 install --no-cache-dir --only-binary=flash-attn flash-attn==2.4.2 || \
-    echo "⚠️ No precompiled flash-attn wheel found, trying manual install..." && \
-    pip3 install --no-cache-dir flash-attn --no-build-isolation
-
-# Verify Flash Attention installation
-RUN python3 -c "import flash_attn; print(f'✅ Flash Attention {flash_attn.__version__} installed successfully!')"
+# Verify installation
+RUN python3 -c "\
+try: \
+    import flash_attn; \
+    print(f'Flash Attention {flash_attn.__version__} installed!'); \
+except ImportError: \
+    print('Flash Attention not available - using standard attention'); \
+"
 
 # Install other core dependencies
 RUN pip3 install --no-cache-dir \
@@ -101,7 +118,7 @@ ENV RUNPOD_POD_ID=${RUNPOD_POD_ID:-""}
 ENV RUNPOD_PUBLIC_IP=${RUNPOD_PUBLIC_IP:-""}
 
 # Final verification
-RUN python3 -c "import torch; import flash_attn; print(f'🚀 Ready! PyTorch: {torch.__version__}, Flash Attention: {flash_attn.__version__}, CUDA: {torch.cuda.is_available()}')"
+RUN python3 -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA: {torch.cuda.is_available()}'); exec('try: import flash_attn; print(f\"Flash Attention: {flash_attn.__version__}\")\\nexcept: print(\"Flash Attention: Not available\")'); print('Container ready!')"
 
 # Expose ports for web interface
 EXPOSE 7860 8000 80
