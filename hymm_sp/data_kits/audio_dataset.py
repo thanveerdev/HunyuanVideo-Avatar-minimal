@@ -6,7 +6,6 @@ import torch
 import random
 import librosa
 import traceback
-import torchvision
 import numpy as np
 import pandas as pd
 from PIL import Image
@@ -14,8 +13,63 @@ from einops import rearrange
 from torch.utils.data import Dataset
 from decord import VideoReader, cpu
 from transformers import CLIPImageProcessor
-import torchvision.transforms as transforms
-from torchvision.transforms import ToPILImage
+
+# Handle torchvision import with version compatibility
+try:
+    import torchvision
+    import torchvision.transforms as transforms
+    from torchvision.transforms import ToPILImage
+    TORCHVISION_AVAILABLE = True
+    print("✅ TorchVision loaded successfully in audio_dataset")
+except Exception as e:
+    print(f"⚠️  TorchVision import failed in audio_dataset: {e}")
+    print("⚠️  Using torch-only fallback for transforms")
+    TORCHVISION_AVAILABLE = False
+    
+    # Fallback transform classes
+    class ToPILImage:
+        def __call__(self, tensor):
+            from PIL import Image
+            import numpy as np
+            if tensor.dim() == 3:
+                tensor = tensor.permute(1, 2, 0)
+            array = (tensor.cpu().numpy() * 255).astype(np.uint8)
+            return Image.fromarray(array)
+    
+    # Basic transforms module fallback
+    class TransformsFallback:
+        class Compose:
+            def __init__(self, transforms):
+                self.transforms = transforms
+            def __call__(self, img):
+                for t in self.transforms:
+                    img = t(img)
+                return img
+        
+        class Resize:
+            def __init__(self, size, interpolation=None):
+                self.size = size
+            def __call__(self, img):
+                return img.resize(self.size, Image.LANCZOS if hasattr(Image, 'LANCZOS') else Image.BICUBIC)
+        
+        class ToTensor:
+            def __call__(self, img):
+                import numpy as np
+                array = np.array(img)
+                if array.ndim == 3:
+                    array = array.transpose(2, 0, 1)
+                return torch.from_numpy(array).float() / 255.0
+        
+        class Normalize:
+            def __init__(self, mean, std):
+                self.mean = torch.tensor(mean).view(-1, 1, 1)
+                self.std = torch.tensor(std).view(-1, 1, 1)
+            def __call__(self, tensor):
+                return (tensor - self.mean) / self.std
+        
+        InterpolationMode = type('InterpolationMode', (), {'BILINEAR': 'bilinear'})()
+    
+    transforms = TransformsFallback()
 
 
 

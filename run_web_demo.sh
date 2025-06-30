@@ -233,6 +233,15 @@ print_info "  Mixed Precision: $MIXED_PRECISION"
 print_info "  Gradio Port: $GRADIO_PORT"
 print_info "  FastAPI Port: $FASTAPI_PORT"
 
+# Apply TorchVision compatibility fix
+print_status "Applying TorchVision compatibility fix..."
+python3 apply_torchvision_fix.py
+if [ $? -eq 0 ]; then
+    print_status "TorchVision compatibility fix applied successfully"
+else
+    print_warning "TorchVision fix had issues, but continuing with fallback mode"
+fi
+
 # Start FastAPI backend
 print_status "Starting FastAPI backend server..."
 cd hymm_gradio

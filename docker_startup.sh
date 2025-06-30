@@ -82,6 +82,15 @@ fi
 # Set persistent mode
 export PERSISTENT_MODE=1
 
+# Apply TorchVision compatibility fix automatically
+print_status "Applying TorchVision compatibility fix..."
+cd /workspace
+if python3 apply_torchvision_fix.py; then
+    print_status "TorchVision compatibility fix applied successfully"
+else
+    print_warning "TorchVision fix had issues, but continuing with fallback mode"
+fi
+
 # Model download with error handling
 MODEL_CHECK_FILE="/workspace/weights/.models_downloaded"
 if [ ! -f "$MODEL_CHECK_FILE" ]; then

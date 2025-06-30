@@ -111,10 +111,18 @@ else
     export VRAM_MODE="ultra_minimal"
 fi
 
+# Apply TorchVision compatibility fix automatically
+echo "🔧 Applying TorchVision compatibility fix..."
+cd /workspace
+if python3 apply_torchvision_fix.py; then
+    echo "✅ TorchVision compatibility fix applied successfully"
+else
+    echo "⚠️  TorchVision fix had issues, but continuing with fallback mode"
+fi
+
 # Fix Python path for imports
 echo "🔧 Setting up Python environment..."
 export PYTHONPATH="/workspace:${PYTHONPATH}"
-cd /workspace
 
 # Start the application based on RUN_MODE
 echo "🌐 Starting application..."
