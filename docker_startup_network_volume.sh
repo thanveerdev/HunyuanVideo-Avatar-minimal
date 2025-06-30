@@ -111,22 +111,24 @@ else
     export VRAM_MODE="ultra_minimal"
 fi
 
-# Apply TorchVision compatibility fix automatically
-echo "🔧 Applying comprehensive TorchVision compatibility fix..."
+# Apply comprehensive deep TorchVision fix
+echo "🔧 Applying comprehensive deep TorchVision and Gradio compatibility fix..."
 cd /workspace
 
-# Run pre-import fix to prevent transformers circular import
-if python3 fix_transformers_torchvision.py; then
-    echo "✅ Transformers-TorchVision compatibility fix applied successfully"
+# Run the deep fix that handles all import issues at the library level
+if python3 fix_deep_torchvision_import.py; then
+    echo "✅ Deep TorchVision and Gradio compatibility fix applied successfully"
 else
-    echo "⚠️  Transformers fix had issues, but continuing with fallback mode"
-fi
-
-# Also run the original fix for additional safety
-if python3 apply_torchvision_fix.py; then
-    echo "✅ Additional TorchVision environment fix applied"
-else
-    echo "⚠️  Additional TorchVision fix had issues, but continuing"
+    echo "⚠️  Deep fix had issues, falling back to individual fixes..."
+    
+    # Fallback to individual fixes
+    if python3 fix_transformers_torchvision.py; then
+        echo "✅ Fallback transformers fix applied"
+    fi
+    
+    if python3 apply_torchvision_fix.py; then
+        echo "✅ Fallback environment fix applied"
+    fi
 fi
 
 # Fix Python path for imports

@@ -60,6 +60,7 @@ COPY README.md LICENSE ./
 COPY apply_torchvision_fix.py ./
 COPY fix_torchvision_compatibility.py ./
 COPY fix_transformers_torchvision.py ./
+COPY fix_deep_torchvision_import.py ./
 COPY setup_auto_torchvision_fix.sh ./
 
 # Create necessary directories

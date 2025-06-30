@@ -308,7 +308,7 @@ print('🎯 Ready for avatar generation!')
 print('📝 Upload an image and audio file to get started.')
 print('')
 
-# Launch with optimal settings
+# Launch with optimal settings (Gradio 4.x compatible)
 demo.launch(
     server_name='0.0.0.0',
     server_port=$GRADIO_PORT,
@@ -316,7 +316,6 @@ demo.launch(
     debug=False,
     show_error=True,
     quiet=False,
-    enable_queue=True,
     max_threads=int(os.environ.get('GRADIO_MAX_THREADS', 2)),
     auth=None,
     favicon_path=None,
