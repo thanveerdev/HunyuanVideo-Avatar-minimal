@@ -169,7 +169,7 @@ MODEL_PATHS = {
 # Default Arguments for Ultra-Low VRAM
 DEFAULT_ARGS = {
     "ckpt": "./weights",
-    "save_path": "./outputs",
+    "save_path": "/network_volume/outputs",  # Use network volume for persistent storage
     "batch_size": 1,
     "image_size": 256,
     "cpu_offload": True,

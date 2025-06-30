@@ -1,11 +1,17 @@
 import os
+import sys
 import cv2
 import glob
 import json
 import datetime
 import requests
 import gradio as gr
-from pipeline_utils import *
+
+# Add workspace to Python path to fix import issues
+sys.path.insert(0, '/workspace')
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from hymm_gradio.pipeline_utils import *
 import numpy as np
 import torch
 from PIL import Image

@@ -1,4 +1,5 @@
 import os
+import sys
 import numpy as np
 import torch
 import warnings
@@ -9,6 +10,11 @@ from fastapi import FastAPI, Body
 from pathlib import Path
 from datetime import datetime
 import torch.distributed as dist
+
+# Add workspace to Python path to fix import issues
+sys.path.insert(0, '/workspace')
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from hymm_gradio.pipeline_utils import *
 from hymm_sp.config import parse_args
 from hymm_sp.audio_video_inference import HunyuanVideoSampler
